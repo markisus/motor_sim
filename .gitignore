@@ -1,0 +1,13 @@
+# emacs
+\#*#
+*~
+.\#*
+
+# bazel
+bazel-*
+
+# ctags
+/TAGS
+
+# mac
+.DS_Store
