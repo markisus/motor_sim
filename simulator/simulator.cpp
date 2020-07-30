@@ -1,3 +1,4 @@
+#include "implot.h"
 #include "wrappers/sdl_context.h"
 #include "wrappers/sdl_imgui.h"
 #include "wrappers/sdl_imgui_context.h"
@@ -238,6 +239,7 @@ int main(int argc, char* argv[]) {
         }
 
         ImGui::ShowDemoWindow();
+        ImPlot::ShowDemoWindow();
 
         ImGui::Render();
         int display_w, display_h;
