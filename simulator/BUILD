@@ -12,6 +12,8 @@ cc_binary(
     deps = [
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
+        "//third_party/imgui:imgui_sdl",
+        "//third_party/implot:implot",
         "//wrappers:sdl_context",
         "//wrappers:sdl_imgui",
     ],

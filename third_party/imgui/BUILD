@@ -4,26 +4,6 @@ package(default_visibility = ["//visibility:public"])
 # depending on which window library you want to use
 
 cc_library(
-    name = "imgui_glfw",
-    srcs = [
-        "imgui_impl_glfw.cpp",
-        "imgui_impl_opengl3.cpp",
-        "imgui_impl_glfw.h",
-        "imgui_impl_opengl3.h",
-    ],
-    hdrs = [
-        "imgui_impl_glfw.h",
-        "imgui_impl_opengl3.h",
-    ],
-    deps = [
-        ":imgui_base",
-        "//third_party/glad:glad",
-        "//third_party/glfw:glfw",
-    ],
-    strip_include_prefix = "/third_party/imgui",
-)
-
-cc_library(
     name = "imgui_sdl",
     srcs = [
         "imgui_impl_sdl.cpp",
