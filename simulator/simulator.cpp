@@ -18,6 +18,7 @@ constexpr int OFF = 2;
 struct SimParams {
     // Scalar dt = 1e-9; // 1 ns
     Scalar dt = 1e-3;
+    int step_multiplier = 100;
 
     int num_pole_pairs;
     Scalar inertia_rotor; // moment of inertia
@@ -26,7 +27,12 @@ struct SimParams {
     Scalar phase_inductance;
     Scalar phase_resistance;
     Scalar v_bus;
-    Scalar v_diode;
+
+    Scalar v_diode_active; // voltage drop,
+                           // which develops current flows across flyback diode
+    Scalar i_diode_active; // current,
+                           // above which diode develops the  v_diode_active
+                           // voltage
 
     // normalized bEmf aka torque/current curve
     // odd coefficients of sine fourier expansion
@@ -41,7 +47,8 @@ void init_sim_params(SimParams* sim_params) {
     sim_params->phase_inductance = 1;
     sim_params->phase_resistance = 1;
     sim_params->v_bus = 5;
-    sim_params->v_diode = 1;
+    sim_params->v_diode_active = 1;
+    sim_params->i_diode_active = 1e-3;
     sim_params->inertia_rotor = 1;
     sim_params->normalized_bEmf_coeffs << 1, 0, 0, 0, 0;
 }
@@ -101,7 +108,9 @@ void step(const SimParams& params, SimState* state) {
             } else {
                 state->v_poles(n) = params.v_bus;
             }
-            state->v_poles(n) -= params.v_diode;
+            if (std::abs(state->i_coils(n)) > params.i_diode_active) {
+                state->v_poles(n) -= params.v_diode_active;
+            }
             break;
         case HIGH:
             state->v_poles(n) = params.v_bus;
@@ -156,7 +165,54 @@ void step(const SimParams& params, SimState* state) {
 
 using namespace biro;
 
-void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step) {
+struct VizData {
+    std::array<Scalar, 50> circle_xs;
+    std::array<Scalar, 50> circle_ys;
+
+    std::array<Scalar, 2> angle_xs_rotor;
+    std::array<Scalar, 2> angle_ys_rotor;
+
+    std::array<Scalar, 2> bEmf_xs;
+    std::array<Scalar, 2> bEmf_ys;
+};
+
+void init_viz_data(VizData* viz_data) {
+    const int num_pts = viz_data->circle_xs.size();
+    for (int i = 0; i < num_pts; ++i) {
+        viz_data->circle_xs[i] = std::cos(Scalar(i) / (num_pts - 1) * 2 * kPI);
+        viz_data->circle_ys[i] = std::sin(Scalar(i) / (num_pts - 1) * 2 * kPI);
+    }
+}
+
+void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
+             VizData* viz_data) {
+
+    ImGui::Begin("Viz");
+    ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
+                              /*x_max=*/1.5,
+                              /*y_min=*/-1.5,
+                              /*y_max=*/1.5);
+    ImPlot::SetNextPlotTicksY(nullptr, 0);
+    ImPlot::SetNextPlotTicksX(nullptr, 0);
+    if (ImPlot::BeginPlot("Rotor Angle", nullptr, nullptr, ImVec2{300, 300},
+                          ImPlotFlags_Default & !ImPlotFlags_Legend)) {
+        const Scalar cos_angle = std::cos(sim_state->angle_rotor);
+        const Scalar sin_angle = std::sin(sim_state->angle_rotor);
+        viz_data->angle_xs_rotor = {0.5f * cos_angle, 1.2f * cos_angle};
+        viz_data->angle_ys_rotor = {0.5f * sin_angle, 1.2f * sin_angle};
+
+        ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, /*weight=*/1.0f);
+        ImPlot::PlotLine("Rotor Circle", viz_data->circle_xs.data(),
+                         viz_data->circle_ys.data(),
+                         viz_data->circle_xs.size());
+        ImPlot::PlotLine("Rotor Angle", viz_data->angle_xs_rotor.data(),
+                         viz_data->angle_ys_rotor.data(),
+                         viz_data->angle_xs_rotor.size());
+        ImPlot::PopStyleVar(1);
+        ImPlot::EndPlot();
+    }
+    ImGui::End();
+
     ImGui::Begin("Simulation");
     ImGui::Checkbox("Should Step", should_step);
 
@@ -197,6 +253,7 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step) {
     ImGui::Text("Rotor Angular Velocity: %f", sim_state->angular_vel_rotor);
     ImGui::Text("Rotor Angular Acceleration: %f",
                 sim_state->angular_accel_rotor);
+
     ImGui::End();
 }
 
@@ -206,6 +263,9 @@ int main(int argc, char* argv[]) {
 
     SimState state;
     init_sim_state(&state);
+
+    VizData viz_data;
+    init_viz_data(&viz_data);
 
     wrappers::SdlContext sdl_context("Motor Simulator",
                                      /*width=*/1920 / 2,
@@ -233,9 +293,11 @@ int main(int argc, char* argv[]) {
 
         wrappers::sdl_imgui_newframe(sdl_context.window_);
 
-        run_gui(&params, &state, &should_step);
+        run_gui(&params, &state, &should_step, &viz_data);
         if (should_step) {
-            step(params, &state);
+            for (int i = 0; i < params.step_multiplier; ++i) {
+                step(params, &state);
+            }
         }
 
         ImGui::ShowDemoWindow();
