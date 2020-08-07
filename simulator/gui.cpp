@@ -135,12 +135,55 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
     }
 }
 
+void order_of_magnitude_control(const char* label, Scalar* controllee,
+                                const int order_of_magnitude = 4) {
+    Scalar l10 = std::log10(*controllee);
+
+    int integral_part = int(l10);
+    float fractional_part = float(l10 - integral_part);
+
+    while (fractional_part < 0) {
+        --integral_part;
+        ++fractional_part;
+    }
+
+    // 10^(integral_part + fractional_part) =
+    // 10^integral_part * base
+    float base = std::pow(10, fractional_part);
+
+    bool interacted = false;
+
+    Scalar inverse = std::pow(10, fractional_part + integral_part);
+
+    ImGui::Text(label);
+    ImGui::SameLine();
+    ImGui::Text("%fe%d", base, integral_part);
+    ImGui::PushID(label);
+    ImGui::SliderFloat("mantissa", &base, 1.0f, 9.99f);
+    ImGui::SliderInt("exponent (base 10)", &integral_part, -order_of_magnitude,
+                     order_of_magnitude);
+    ImGui::PopID();
+
+    *controllee = base * std::pow(10, integral_part);
+}
+
 void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
              VizData* viz_data) {
 
-    ImGui::Begin("Viz");
+    ImGui::Begin("Simulation Params");
 
+    order_of_magnitude_control("Phase Inductance",
+                               &sim_params->phase_inductance);
+    order_of_magnitude_control("Phase Resistance",
+                               &sim_params->phase_resistance);
+
+    ImGui::End();
+
+    ImGui::Begin("Rotor Viz");
     draw_rotor_plot(sim_state, viz_data);
+    ImGui::End();
+
+    ImGui::Begin("Plots");
 
     if (*should_step) {
         update_rolling_buffers(sim_state, viz_data);
