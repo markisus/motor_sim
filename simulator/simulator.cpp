@@ -26,6 +26,36 @@ Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
     return sines.dot(normalized_bEmf_coeffs);
 }
 
+int get_commutation_state(const Scalar dead_time, Scalar progress) {
+    if (progress < 0) {
+        progress += 1;
+    }
+    if (progress < dead_time) {
+        printf("returning off bc progress is %f\n", progress);
+        return OFF;
+    }
+    if (progress >= 0.5 && progress < 0.5 + dead_time) {
+        printf("returning off bc progress is %f\n", progress);
+        return OFF;
+    }
+    if (progress < 0.5) {
+        return LOW;
+    }
+    if (progress >= 0.5) {
+        return HIGH;
+    }
+}
+
+void six_step_commutate(const Scalar dead_time, SimState* state) {
+    constexpr Scalar period = 3.0; // seconds
+
+    Scalar progress = state->electrical_angle / (2 * kPI);
+
+    state->switches[0] = get_commutation_state(dead_time, progress);
+    state->switches[1] = get_commutation_state(dead_time, progress - 1.0 / 3);
+    state->switches[2] = get_commutation_state(dead_time, progress - 2.0 / 3);
+}
+
 void step(const SimParams& params, SimState* state) {
     state->time += params.dt;
 
@@ -62,9 +92,9 @@ void step(const SimParams& params, SimState* state) {
     normalized_bEmfs << // clang-format off
         get_back_emf(params.normalized_bEmf_coeffs, state->electrical_angle),
         get_back_emf(params.normalized_bEmf_coeffs,
-                     state->electrical_angle + 2 * kPI / 3),
+                     state->electrical_angle - 2 * kPI / 3),
         get_back_emf(params.normalized_bEmf_coeffs,
-                     state->electrical_angle - 2 * kPI / 3); // clang-format on
+                     state->electrical_angle - 4 * kPI / 3); // clang-format on
 
     state->bEmfs = normalized_bEmfs * state->rotor_angular_vel;
 
@@ -74,7 +104,8 @@ void step(const SimParams& params, SimState* state) {
         (state->pole_voltages.sum() - state->bEmfs.sum()) / 3;
 
     for (int n = 0; n < 3; ++n) {
-        state->phase_voltages(n) = state->pole_voltages(n) - state->neutral_voltage;
+        state->phase_voltages(n) =
+            state->pole_voltages(n) - state->neutral_voltage;
     }
 
     Eigen::Matrix<Scalar, 3, 1> di_dt;
@@ -92,6 +123,9 @@ void step(const SimParams& params, SimState* state) {
     state->rotor_angular_vel += state->rotor_angular_accel * params.dt;
     state->rotor_angle += state->rotor_angular_vel * params.dt;
     state->rotor_angle = std::fmod(state->rotor_angle, 2 * kPI);
+    if (state->rotor_angle < 0) {
+        state->rotor_angle += 2 * kPI;
+    }
 
     state->electrical_angle = state->rotor_angle * params.num_pole_pairs;
     state->electrical_angle = std::fmod(state->electrical_angle, 2 * kPI);
@@ -139,6 +173,7 @@ int main(int argc, char* argv[]) {
         if (should_step) {
             for (int i = 0; i < params.step_multiplier; ++i) {
                 step(params, &state);
+                six_step_commutate(params.gate_dead_time, &state);
             }
         }
 
