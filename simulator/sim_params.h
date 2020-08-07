@@ -5,8 +5,12 @@
 #include <array>
 
 struct SimParams {
-    Scalar dt = 1e-6; // 1 us
-    int step_multiplier = 5e3;
+    Scalar dt = 1e-6;          // sec
+    int step_multiplier = 5e3; // sec
+    Scalar gate_dead_time =
+        1e-3; // sec
+              // time during commutation when gate is neither high nor low, to
+              // prevent shoot through current
 
     int num_pole_pairs;
     Scalar rotor_inertia; // moment of inertia
