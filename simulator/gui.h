@@ -51,6 +51,7 @@ struct VizData {
     std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_is;
     std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_bEmfs;
     std::array<Scalar, kNumRollingPts> rolling_torques;
+    std::array<Scalar, kNumRollingPts> rolling_rotor_angular_vel;
 };
 
 void init_viz_data(VizData* viz_data);

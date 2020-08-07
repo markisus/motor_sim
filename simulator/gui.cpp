@@ -8,7 +8,7 @@
 
 constexpr Scalar kRollingHistory = 1; // sec
 constexpr int kPlotHeight = 250;      // sec
-constexpr int kPlotWidth = 500;       // sec
+constexpr int kPlotWidth = 350;       // sec
 
 void init_viz_data(VizData* viz_data) {
     const int num_pts = viz_data->circle_xs.size();
@@ -24,7 +24,7 @@ void draw_bEmfs_plot(const int count, const int offset, SimParams* sim_params,
                                sim_state->time, ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(-sim_params->bus_voltage,
                                sim_params->bus_voltage, ImGuiCond_Once);
-    if (ImPlot::BeginPlot("Phase bEMFs", "Seconds", "Volts",
+    if (ImPlot::BeginPlot("bEMFs", "Seconds", "Volts",
                           ImVec2(kPlotWidth, kPlotHeight))) {
         for (int i = 0; i < 3; ++i) {
             ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
@@ -70,6 +70,21 @@ void draw_torque_plot(const int count, const int offset, SimParams* sim_params,
     }
 }
 
+void draw_rotor_angular_vel_plot(const int count, const int offset,
+                                 SimParams* sim_params, SimState* sim_state,
+                                 VizData* viz_data) {
+    ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
+                               sim_state->time, ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
+    if (ImPlot::BeginPlot("Rotor Angular Vel", "Seconds", "Radians / Sec",
+                          ImVec2(kPlotWidth, kPlotHeight))) {
+        ImPlot::PlotLine("", viz_data->rolling_timestamps.data(),
+                         viz_data->rolling_rotor_angular_vel.data(), count,
+                         offset, sizeof(Scalar));
+        ImPlot::EndPlot();
+    }
+}
+
 void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
     viz_data->rolling_timestamps[viz_data->rolling_buffers_next_idx] =
         sim_state->time;
@@ -81,6 +96,10 @@ void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
         viz_data->rolling_bEmfs[i][viz_data->rolling_buffers_next_idx] =
             sim_state->bEmfs(i);
     }
+
+    viz_data->rolling_rotor_angular_vel[viz_data->rolling_buffers_next_idx] =
+        sim_state->rotor_angular_vel;
+
     viz_data->rolling_torques[viz_data->rolling_buffers_next_idx] =
         sim_state->torque;
 
@@ -134,14 +153,17 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
         viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
         viz_data->rolling_buffers_wrap_around);
 
+    // electrical
     draw_bEmfs_plot(rolling_buffer_count, rolling_buffer_offset, sim_params,
                     sim_state, viz_data);
-
     ImGui::SameLine();
-
     draw_phase_currents_plot(rolling_buffer_count, rolling_buffer_offset,
                              sim_params, sim_state, viz_data);
 
+    // dynamics
+    draw_rotor_angular_vel_plot(rolling_buffer_count, rolling_buffer_offset,
+                                sim_params, sim_state, viz_data);
+    ImGui::SameLine();
     draw_torque_plot(rolling_buffer_count, rolling_buffer_offset, sim_params,
                      sim_state, viz_data);
 
