@@ -135,8 +135,9 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
     }
 }
 
-void order_of_magnitude_control(const char* label, Scalar* controllee,
+bool order_of_magnitude_control(const char* label, Scalar* controllee,
                                 const int order_of_magnitude = 4) {
+    bool interacted = false;
     Scalar l10 = std::log10(*controllee);
 
     int integral_part = int(l10);
@@ -151,26 +152,37 @@ void order_of_magnitude_control(const char* label, Scalar* controllee,
     // 10^integral_part * base
     float base = std::pow(10, fractional_part);
 
-    bool interacted = false;
-
-    Scalar inverse = std::pow(10, fractional_part + integral_part);
-
     ImGui::Text(label);
     ImGui::SameLine();
     ImGui::Text("%fe%d", base, integral_part);
     ImGui::PushID(label);
-    ImGui::SliderFloat("mantissa", &base, 1.0f, 9.99f);
-    ImGui::SliderInt("exponent (base 10)", &integral_part, -order_of_magnitude,
-                     order_of_magnitude);
+    interacted = ImGui::SliderFloat("mantissa", &base, 1.0f, 9.99f);
+    interacted =
+        interacted || ImGui::SliderInt("exponent (base 10)", &integral_part,
+                                       -order_of_magnitude, order_of_magnitude);
     ImGui::PopID();
 
     *controllee = base * std::pow(10, integral_part);
+
+    return interacted;
+}
+
+// imgui doesn't have SliderDouble
+bool Slider(const char* label, Scalar* scalar, Scalar low, Scalar high) {
+    float wrapped = *scalar;
+    const bool interacted =
+        ImGui::SliderFloat(label, &wrapped, float(low), float(high));
+    *scalar = Scalar(wrapped);
+    return interacted;
 }
 
 void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
              VizData* viz_data) {
 
     ImGui::Begin("Simulation Params");
+
+    Slider("Bus Voltage", &sim_params->bus_voltage, 1.0, 120);
+    Slider("Diode Active Voltage", &sim_params->diode_active_voltage, 0.0, 5);
 
     order_of_magnitude_control("Phase Inductance",
                                &sim_params->phase_inductance);
