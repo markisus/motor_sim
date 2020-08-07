@@ -6,11 +6,54 @@ LINKOPTS = select({
     "@bazel_tools//src/conditions:windows": [],
     "//conditions:default": ["-lstdc++fs"],})
 
+cc_library(
+    name = "sim_state",
+    hdrs = ["sim_state.h"],
+    deps = ["//third_party/eigen:eigen"]
+)
+
+cc_library(
+    name = "gui",
+    srcs = ["gui.cpp"],
+    hdrs = ["gui.h"],
+    deps = [
+        ":pi",
+        ":scalar",
+        ":sim_params",
+        ":sim_state",
+        "//third_party/imgui:imgui_base",
+        "//third_party/implot:implot",
+        "@com_google_absl//absl/strings:str_format",
+    ])
+
+cc_library(
+    name = "scalar",
+    hdrs = ["scalar.h"])
+
+cc_library(
+    name = "pi",
+    hdrs = ["pi.h"],
+    deps = [":scalar"]
+)
+
+
+cc_library(
+    name = "sim_params",
+    hdrs = ["sim_params.h"],
+    deps = [
+        ":pi",
+        ":scalar",
+        "//third_party/eigen:eigen",
+    ]
+)
 cc_binary(
     name = "simulator",
     srcs = ["simulator.cpp"],
     deps = [
+        ":gui",
+        ":scalar",
         ":sine_series",
+        ":sim_params",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",
