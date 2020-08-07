@@ -3,11 +3,12 @@
 #include "wrappers/sdl_imgui.h"
 #include "wrappers/sdl_imgui_context.h"
 #include <Eigen/Dense>
+#include <absl/strings/str_format.h>
 #include <array>
 #include <glad/glad.h>
 #include <iostream>
 
-using Scalar = float;
+using Scalar = double;
 constexpr Scalar kPI = 3.14159265358979323846264338327950288;
 
 // literals for use with switch states
@@ -16,9 +17,8 @@ constexpr int HIGH = 1;
 constexpr int OFF = 2;
 
 struct SimParams {
-    // Scalar dt = 1e-9; // 1 ns
-    Scalar dt = 1e-3;
-    int step_multiplier = 100;
+    Scalar dt = 1e-6; // 1 us
+    int step_multiplier = 5e3;
 
     int num_pole_pairs;
     Scalar inertia_rotor; // moment of inertia
@@ -54,6 +54,8 @@ void init_sim_params(SimParams* sim_params) {
 }
 
 struct SimState {
+    Scalar time = 0;
+
     Scalar angle_rotor;
     Scalar angular_vel_rotor;
     Scalar angular_accel_rotor;
@@ -97,6 +99,8 @@ Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
 }
 
 void step(const SimParams& params, SimState* state) {
+    state->time += params.dt;
+
     // apply pole voltages
     for (int n = 0; n < 3; ++n) {
         Scalar v_pole = 0;
@@ -165,6 +169,17 @@ void step(const SimParams& params, SimState* state) {
 
 using namespace biro;
 
+void rolling_buffer_advance_idx(const size_t rolling_buffer_capacity,
+                                int* next_idx, bool* wrap_around) {
+    ++(*next_idx);
+    if ((*next_idx) >= rolling_buffer_capacity) {
+        (*next_idx) = 0;
+        (*wrap_around) = true;
+    }
+}
+
+constexpr int kNumRollingPts = 200;
+
 struct VizData {
     std::array<Scalar, 50> circle_xs;
     std::array<Scalar, 50> circle_ys;
@@ -174,6 +189,13 @@ struct VizData {
 
     std::array<Scalar, 2> bEmf_xs;
     std::array<Scalar, 2> bEmf_ys;
+
+    int rolling_buffers_next_idx = 0;
+    bool rolling_buffers_wrap_around = false;
+    std::array<Scalar, kNumRollingPts> rolling_timestamps;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_phase_vs;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_is;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_bEmfs;
 };
 
 void init_viz_data(VizData* viz_data) {
@@ -188,14 +210,58 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
              VizData* viz_data) {
 
     ImGui::Begin("Viz");
+
+    // Add data points to plots
+    if (*should_step) {
+        viz_data->rolling_timestamps[viz_data->rolling_buffers_next_idx] =
+            sim_state->time;
+        for (int i = 0; i < 3; ++i) {
+            viz_data->rolling_phase_vs[i][viz_data->rolling_buffers_next_idx] =
+                sim_state->v_phases(i);
+            viz_data->rolling_is[i][viz_data->rolling_buffers_next_idx] =
+                sim_state->i_coils(i);
+            viz_data->rolling_bEmfs[i][viz_data->rolling_buffers_next_idx] =
+                sim_state->bEmfs(i);
+        }
+        rolling_buffer_advance_idx(viz_data->rolling_timestamps.size(),
+                                   &viz_data->rolling_buffers_next_idx,
+                                   &viz_data->rolling_buffers_wrap_around);
+    }
+
+    Scalar history = 1;
+    ImPlot::SetNextPlotLimitsX(sim_state->time - history, sim_state->time,
+                               ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsY(-sim_params->v_bus, sim_params->v_bus,
+                               ImGuiCond_Once);
+
+    if (ImPlot::BeginPlot("Phase bEMFs", "Time (seconds)", "Volts", ImVec2(-1, 350))) {
+        const int count = viz_data->rolling_buffers_wrap_around
+                              ? viz_data->rolling_timestamps.size()
+                              : viz_data->rolling_buffers_next_idx;
+
+        const int offset = viz_data->rolling_buffers_wrap_around
+                               ? viz_data->rolling_buffers_next_idx
+                               : 0;
+
+        for (int i = 0; i < 3; ++i) {
+            ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
+                             viz_data->rolling_timestamps.data(),
+                             viz_data->rolling_bEmfs[i].data(), count, offset,
+                             sizeof(Scalar));
+        }
+
+        ImPlot::EndPlot();
+    }
+
     ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
                               /*x_max=*/1.5,
                               /*y_min=*/-1.5,
                               /*y_max=*/1.5);
-    ImPlot::SetNextPlotTicksY(nullptr, 0);
-    ImPlot::SetNextPlotTicksX(nullptr, 0);
     if (ImPlot::BeginPlot("Rotor Angle", nullptr, nullptr, ImVec2{300, 300},
-                          ImPlotFlags_Default & !ImPlotFlags_Legend)) {
+                          ImPlotFlags_Default & !ImPlotFlags_Legend,
+                          ImPlotAxisFlags_Default & ~ImPlotAxisFlags_TickLabels,
+                          ImPlotAxisFlags_Default &
+                              ~ImPlotAxisFlags_TickLabels)) {
         const Scalar cos_angle = std::cos(sim_state->angle_rotor);
         const Scalar sin_angle = std::sin(sim_state->angle_rotor);
         viz_data->angle_xs_rotor = {0.5f * cos_angle, 1.2f * cos_angle};

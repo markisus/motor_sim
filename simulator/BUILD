@@ -16,6 +16,7 @@ cc_binary(
         "//third_party/implot:implot",
         "//wrappers:sdl_context",
         "//wrappers:sdl_imgui",
+        "@com_google_absl//absl/strings:str_format",
     ],
     copts = COPTS, # need cpp17 to avoid eigen weirdness
 )
