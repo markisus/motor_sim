@@ -1,4 +1,5 @@
 #include "implot.h"
+#include "sine_series.h"
 #include "wrappers/sdl_context.h"
 #include "wrappers/sdl_imgui.h"
 #include "wrappers/sdl_imgui_context.h"
@@ -89,12 +90,8 @@ void init_sim_state(SimState* state) {
 Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
                     const Scalar angle_electrical) {
     Eigen::Matrix<Scalar, 5, 1> sines;
-    sines << // clang-format off
-        std::sin(angle_electrical),
-        std::sin(3 * angle_electrical),
-        std::sin(5 * angle_electrical),
-        std::sin(7 * angle_electrical),
-        std::sin(11 * angle_electrical); // clang-format on
+    generate_odd_sine_series(/*num_terms=*/sines.rows(), angle_electrical,
+                             sines.data());
     return sines.dot(normalized_bEmf_coeffs);
 }
 
