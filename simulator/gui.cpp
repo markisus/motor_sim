@@ -21,7 +21,7 @@ void draw_phase_bEmfs_plot(const int count, const int offset,
                            VizData* viz_data) {
     ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
                                sim_state->time, ImGuiCond_Always);
-    ImPlot::SetNextPlotLimitsY(-sim_params->v_bus, sim_params->v_bus,
+    ImPlot::SetNextPlotLimitsY(-sim_params->bus_voltage, sim_params->bus_voltage,
                                ImGuiCond_Once);
     if (ImPlot::BeginPlot("Phase bEMFs", "Seconds", "Volts", ImVec2(-1, 350))) {
         for (int i = 0; i < 3; ++i) {
@@ -40,8 +40,8 @@ void draw_phase_currents_plot(const int count, const int offset,
     ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
                                sim_state->time, ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(
-        -sim_params->v_bus / sim_params->phase_resistance,
-        sim_params->v_bus / sim_params->phase_resistance, ImGuiCond_Once);
+        -sim_params->bus_voltage / sim_params->phase_resistance,
+        sim_params->bus_voltage / sim_params->phase_resistance, ImGuiCond_Once);
     if (ImPlot::BeginPlot("Phase Currents", "Seconds", "Amperes",
                           ImVec2(-1, 350))) {
         for (int i = 0; i < 3; ++i) {
@@ -145,7 +145,7 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
     ImGui::Begin("Simulation");
     ImGui::Checkbox("Should Step", should_step);
 
-    ImGui::Text("Bus Voltage: %f", sim_params->v_bus);
+    ImGui::Text("Bus Voltage: %f", sim_params->bus_voltage);
     ImGui::Text("Phase Inductance: %f", sim_params->phase_inductance);
     ImGui::Text("Phase Resistance: %f", sim_params->phase_resistance);
     ImGui::Text("Num Pole Pairs: %d", sim_params->num_pole_pairs);

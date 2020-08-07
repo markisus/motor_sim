@@ -38,14 +38,14 @@ void step(const SimParams& params, SimState* state) {
             if (state->i_coils(n) > 0) {
                 state->v_poles(n) = 0;
             } else {
-                state->v_poles(n) = params.v_bus;
+                state->v_poles(n) = params.bus_voltage;
             }
             if (std::abs(state->i_coils(n)) > params.i_diode_active) {
                 state->v_poles(n) -= params.v_diode_active;
             }
             break;
         case HIGH:
-            state->v_poles(n) = params.v_bus;
+            state->v_poles(n) = params.bus_voltage;
             break;
         case LOW:
             state->v_poles(n) = 0;
