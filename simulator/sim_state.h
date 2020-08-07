@@ -6,32 +6,32 @@
 struct SimState {
     Scalar time = 0;
 
-    Scalar angle_rotor;
-    Scalar angular_vel_rotor;
-    Scalar angular_accel_rotor;
+    Scalar rotor_angle;
+    Scalar rotor_angular_vel;
+    Scalar rotor_angular_accel;
 
-    Scalar angle_electrical;
+    Scalar electrical_angle;
 
     Scalar torque;
 
-    Scalar v_neutral;
+    Scalar neutral_voltage;
     std::array<int, 3> switches;
-    Eigen::Matrix<Scalar, 3, 1> v_poles;
-    Eigen::Matrix<Scalar, 3, 1> v_phases;
-    Eigen::Matrix<Scalar, 3, 1> i_coils;
+    Eigen::Matrix<Scalar, 3, 1> pole_voltages;
+    Eigen::Matrix<Scalar, 3, 1> phase_voltages;
+    Eigen::Matrix<Scalar, 3, 1> coil_currents;
     Eigen::Matrix<Scalar, 3, 1> bEmfs;
 };
 
 inline void init_sim_state(SimState* state) {
     state->switches = {};
-    state->v_neutral = 0;
-    state->v_poles.setZero();
-    state->v_phases.setZero();
-    state->i_coils.setZero();
+    state->neutral_voltage = 0;
+    state->pole_voltages.setZero();
+    state->phase_voltages.setZero();
+    state->coil_currents.setZero();
     state->bEmfs.setZero();
-    state->angle_rotor = 0;
-    state->angular_vel_rotor = 0;
-    state->angular_accel_rotor = 0;
-    state->angle_electrical = 0;
+    state->rotor_angle = 0;
+    state->rotor_angular_vel = 0;
+    state->rotor_angular_accel = 0;
+    state->electrical_angle = 0;
     state->torque = 0;
 }

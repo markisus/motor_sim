@@ -9,18 +9,19 @@ struct SimParams {
     int step_multiplier = 5e3;
 
     int num_pole_pairs;
-    Scalar inertia_rotor; // moment of inertia
+    Scalar rotor_inertia; // moment of inertia
     Scalar mechanical_to_electrical_offset;
 
     Scalar phase_inductance;
     Scalar phase_resistance;
-    Scalar v_bus;
+    Scalar bus_voltage;
 
-    Scalar v_diode_active; // voltage drop,
-                           // which develops current flows across flyback diode
-    Scalar i_diode_active; // current,
-                           // above which diode develops the  v_diode_active
-                           // voltage
+    Scalar diode_active_voltage; // voltage drop,
+                                 // which develops current flows across flyback
+                                 // diode
+    Scalar diode_active_current; // current,
+                                 // above which diode develops the
+                                 // v_diode_active voltage
 
     // normalized bEmf aka torque/current curve
     // odd coefficients of sine fourier expansion
@@ -34,9 +35,9 @@ inline void init_sim_params(SimParams* sim_params) {
     sim_params->num_pole_pairs = 4;
     sim_params->phase_inductance = 1;
     sim_params->phase_resistance = 1;
-    sim_params->v_bus = 5;
-    sim_params->v_diode_active = 1;
-    sim_params->i_diode_active = 1e-3;
-    sim_params->inertia_rotor = 1;
+    sim_params->bus_voltage = 5;
+    sim_params->diode_active_voltage = 1;
+    sim_params->diode_active_current = 1e-3;
+    sim_params->rotor_inertia = 1;
     sim_params->normalized_bEmf_coeffs << 1, 0, 0, 0, 0;
 }

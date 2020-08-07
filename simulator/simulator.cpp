@@ -19,9 +19,9 @@ constexpr int HIGH = 1;
 constexpr int OFF = 2;
 
 Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
-                    const Scalar angle_electrical) {
+                    const Scalar electrical_angle) {
     Eigen::Matrix<Scalar, 5, 1> sines;
-    generate_odd_sine_series(/*num_terms=*/sines.rows(), angle_electrical,
+    generate_odd_sine_series(/*num_terms=*/sines.rows(), electrical_angle,
                              sines.data());
     return sines.dot(normalized_bEmf_coeffs);
 }
@@ -35,20 +35,21 @@ void step(const SimParams& params, SimState* state) {
         switch (state->switches[n]) {
         case OFF:
             // todo: derivation
-            if (state->i_coils(n) > 0) {
-                state->v_poles(n) = 0;
+            if (state->coil_currents(n) > 0) {
+                state->pole_voltages(n) = 0;
             } else {
-                state->v_poles(n) = params.bus_voltage;
+                state->pole_voltages(n) = params.bus_voltage;
             }
-            if (std::abs(state->i_coils(n)) > params.i_diode_active) {
-                state->v_poles(n) -= params.v_diode_active;
+            if (std::abs(state->coil_currents(n)) >
+                params.diode_active_current) {
+                state->pole_voltages(n) -= params.diode_active_voltage;
             }
             break;
         case HIGH:
-            state->v_poles(n) = params.bus_voltage;
+            state->pole_voltages(n) = params.bus_voltage;
             break;
         case LOW:
-            state->v_poles(n) = 0;
+            state->pole_voltages(n) = 0;
             break;
         default:
             printf("Unhandled switch case!");
@@ -59,40 +60,41 @@ void step(const SimParams& params, SimState* state) {
     // compute normalized back emfs
     Eigen::Matrix<Scalar, 3, 1> normalized_bEmfs;
     normalized_bEmfs << // clang-format off
-        get_back_emf(params.normalized_bEmf_coeffs, state->angle_electrical),
+        get_back_emf(params.normalized_bEmf_coeffs, state->electrical_angle),
         get_back_emf(params.normalized_bEmf_coeffs,
-                     state->angle_electrical + 2 * kPI / 3),
+                     state->electrical_angle + 2 * kPI / 3),
         get_back_emf(params.normalized_bEmf_coeffs,
-                     state->angle_electrical - 2 * kPI / 3); // clang-format on
+                     state->electrical_angle - 2 * kPI / 3); // clang-format on
 
-    state->bEmfs = normalized_bEmfs * state->angular_vel_rotor;
+    state->bEmfs = normalized_bEmfs * state->rotor_angular_vel;
 
     // compute neutral point voltage
     // todo: derivation
-    state->v_neutral = (state->v_poles.sum() - state->bEmfs.sum()) / 3;
+    state->neutral_voltage =
+        (state->pole_voltages.sum() - state->bEmfs.sum()) / 3;
 
     for (int n = 0; n < 3; ++n) {
-        state->v_phases(n) = state->v_poles(n) - state->v_neutral;
+        state->phase_voltages(n) = state->pole_voltages(n) - state->neutral_voltage;
     }
 
     Eigen::Matrix<Scalar, 3, 1> di_dt;
     for (int n = 0; n < 3; ++n) {
-        di_dt(n) = (state->v_phases(n) - state->bEmfs(n) -
-                    state->i_coils(n) * params.phase_resistance) /
+        di_dt(n) = (state->phase_voltages(n) - state->bEmfs(n) -
+                    state->coil_currents(n) * params.phase_resistance) /
                    params.phase_inductance;
     }
 
-    state->i_coils += di_dt * params.dt;
+    state->coil_currents += di_dt * params.dt;
 
-    state->torque = state->i_coils.dot(normalized_bEmfs);
+    state->torque = state->coil_currents.dot(normalized_bEmfs);
 
-    state->angular_accel_rotor = state->torque / params.inertia_rotor;
-    state->angular_vel_rotor += state->angular_accel_rotor * params.dt;
-    state->angle_rotor += state->angular_vel_rotor * params.dt;
-    state->angle_rotor = std::fmod(state->angle_rotor, 2 * kPI);
+    state->rotor_angular_accel = state->torque / params.rotor_inertia;
+    state->rotor_angular_vel += state->rotor_angular_accel * params.dt;
+    state->rotor_angle += state->rotor_angular_vel * params.dt;
+    state->rotor_angle = std::fmod(state->rotor_angle, 2 * kPI);
 
-    state->angle_electrical = state->angle_rotor * params.num_pole_pairs;
-    state->angle_electrical = std::fmod(state->angle_electrical, 2 * kPI);
+    state->electrical_angle = state->rotor_angle * params.num_pole_pairs;
+    state->electrical_angle = std::fmod(state->electrical_angle, 2 * kPI);
 }
 
 using namespace biro;
