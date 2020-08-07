@@ -175,6 +175,22 @@ void rolling_buffer_advance_idx(const size_t rolling_buffer_capacity,
     }
 }
 
+int get_rolling_buffer_count(const size_t rolling_buffer_capacity,
+                             const int next_idx, const bool wrap_around) {
+    if (wrap_around) {
+        return rolling_buffer_capacity;
+    }
+    return next_idx;
+}
+
+int get_rolling_buffer_offset(const size_t rolling_buffer_capacity,
+                              const int next_idx, const bool wrap_around) {
+    if (wrap_around) {
+        return next_idx;
+    }
+    return 0;
+}
+
 constexpr int kNumRollingPts = 200;
 
 struct VizData {
@@ -231,22 +247,22 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
     ImPlot::SetNextPlotLimitsY(-sim_params->v_bus, sim_params->v_bus,
                                ImGuiCond_Once);
 
-    if (ImPlot::BeginPlot("Phase bEMFs", "Time (seconds)", "Volts", ImVec2(-1, 350))) {
-        const int count = viz_data->rolling_buffers_wrap_around
-                              ? viz_data->rolling_timestamps.size()
-                              : viz_data->rolling_buffers_next_idx;
+    const int rolling_buffer_count = get_rolling_buffer_count(
+        viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
+        viz_data->rolling_buffers_wrap_around);
+    const int rolling_buffer_offset = get_rolling_buffer_offset(
+        viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
+        viz_data->rolling_buffers_wrap_around);
 
-        const int offset = viz_data->rolling_buffers_wrap_around
-                               ? viz_data->rolling_buffers_next_idx
-                               : 0;
-
+    if (ImPlot::BeginPlot("Phase bEMFs", "Time (seconds)", "Volts",
+                          ImVec2(-1, 350))) {
         for (int i = 0; i < 3; ++i) {
             ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
                              viz_data->rolling_timestamps.data(),
-                             viz_data->rolling_bEmfs[i].data(), count, offset,
+                             viz_data->rolling_bEmfs[i].data(),
+                             rolling_buffer_count, rolling_buffer_offset,
                              sizeof(Scalar));
         }
-
         ImPlot::EndPlot();
     }
 
