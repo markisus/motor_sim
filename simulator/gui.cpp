@@ -181,6 +181,9 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
 
     ImGui::Begin("Simulation Params");
 
+    Slider("Rotor Moment of Inertia (kg m^2)", &sim_params->rotor_inertia, 0.1,
+           10);
+
     Slider("Bus Voltage", &sim_params->bus_voltage, 1.0, 120);
     Slider("Diode Active Voltage", &sim_params->diode_active_voltage, 0.0, 5);
 
