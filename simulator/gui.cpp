@@ -18,8 +18,18 @@ void init_viz_data(VizData* viz_data) {
     }
 }
 
-void draw_bEmfs_plot(const int count, const int offset, SimParams* sim_params,
-                     SimState* sim_state, VizData* viz_data) {
+void draw_electrical_plot(const int count, const int offset,
+                          SimParams* sim_params, SimState* sim_state,
+                          VizData* viz_data) {
+
+    if (viz_data->show_bEmfs || viz_data->show_phase_currents) {
+        ImGui::Checkbox("Show Coil 0", &viz_data->coil_visible[0]);
+        ImGui::SameLine();
+        ImGui::Checkbox("Show Coil 1", &viz_data->coil_visible[1]);
+        ImGui::SameLine();
+        ImGui::Checkbox("Show Coil 2", &viz_data->coil_visible[2]);
+    }
+
     ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
                                sim_state->time, ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(-sim_params->bus_voltage,
@@ -27,6 +37,10 @@ void draw_bEmfs_plot(const int count, const int offset, SimParams* sim_params,
     if (ImPlot::BeginPlot("bEMFs", "Seconds", "Volts",
                           ImVec2(kPlotWidth, kPlotHeight))) {
         for (int i = 0; i < 3; ++i) {
+            if (!viz_data->coil_visible[i]) {
+                continue;
+            }
+
             ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
                              viz_data->rolling_timestamps.data(),
                              viz_data->rolling_bEmfs[i].data(), count, offset,
@@ -211,12 +225,12 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
         viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
         viz_data->rolling_buffers_wrap_around);
 
-    // electrical
-    draw_bEmfs_plot(rolling_buffer_count, rolling_buffer_offset, sim_params,
-                    sim_state, viz_data);
-    ImGui::SameLine();
-    draw_phase_currents_plot(rolling_buffer_count, rolling_buffer_offset,
+    ImGui::Checkbox("Show bEmfs", &viz_data->show_bEmfs);
+    ImGui::Checkbox("Show Phase Currents", &viz_data->show_phase_currents);
+    if (viz_data->show_bEmfs || viz_data->show_phase_currents) {
+        draw_electrical_plot(rolling_buffer_count, rolling_buffer_offset,
                              sim_params, sim_state, viz_data);
+    }
 
     // dynamics
     draw_rotor_angular_vel_plot(rolling_buffer_count, rolling_buffer_offset,

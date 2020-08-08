@@ -44,6 +44,10 @@ struct VizData {
     std::array<Scalar, 2> bEmf_xs;
     std::array<Scalar, 2> bEmf_ys;
 
+    std::array<bool, 3> coil_visible = {true, true, true};
+    bool show_bEmfs = true;
+    bool show_phase_currents = true;
+    
     int rolling_buffers_next_idx = 0;
     bool rolling_buffers_wrap_around = false;
     std::array<Scalar, kNumRollingPts> rolling_timestamps;
