@@ -41,12 +41,9 @@ struct VizData {
     std::array<Scalar, 2> angle_xs_rotor;
     std::array<Scalar, 2> angle_ys_rotor;
 
-    std::array<Scalar, 2> bEmf_xs;
-    std::array<Scalar, 2> bEmf_ys;
-
     std::array<uint32_t, 3> coil_colors;
     std::array<bool, 3> coil_visible = {true, false, false};
-    bool show_bEmfs = true;
+    bool show_bEmfs = false;
     bool show_normalized_bEmfs = true;
     bool show_phase_currents = true;
     bool show_phase_voltages = true;
@@ -57,10 +54,10 @@ struct VizData {
     bool rolling_buffers_wrap_around = false;
     std::array<Scalar, kNumRollingPts> rolling_timestamps;
     std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_phase_vs;
-    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_is;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_phase_currents;
     std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_bEmfs;
     std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_normalized_bEmfs;
-    std::array<Scalar, kNumRollingPts> rolling_torques;
+    std::array<Scalar, kNumRollingPts> rolling_torque;
     std::array<Scalar, kNumRollingPts> rolling_rotor_angular_vel;
 };
 

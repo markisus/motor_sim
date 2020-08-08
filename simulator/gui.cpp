@@ -95,7 +95,7 @@ void draw_electrical_plot(const int count, const int offset,
 
             if (viz_data->show_normalized_bEmfs) {
                 ImPlot::SetPlotYAxis(0);
-                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.5f));
+                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.8f));
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Normed bEmf", i).c_str(),
                                  viz_data->rolling_timestamps.data(),
                                  viz_data->rolling_normalized_bEmfs[i].data(),
@@ -105,7 +105,7 @@ void draw_electrical_plot(const int count, const int offset,
 
             if (viz_data->show_bEmfs) {
                 ImPlot::SetPlotYAxis(0);
-                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.3f));
+                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.5f));
                 ImPlot::PlotLine(absl::StrFormat("Coil %d bEmf", i).c_str(),
                                  viz_data->rolling_timestamps.data(),
                                  viz_data->rolling_bEmfs[i].data(), count,
@@ -116,11 +116,11 @@ void draw_electrical_plot(const int count, const int offset,
             if (viz_data->show_phase_currents) {
                 ImPlot::SetPlotYAxis(1);
                 ImPlot::PushStyleColor(ImPlotCol_Line,
-                                       get_coil_color(i, 0.25f));
+                                       get_coil_color(i, 0.3f));
                 ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 4.0f);
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Current", i).c_str(),
                                  viz_data->rolling_timestamps.data(),
-                                 viz_data->rolling_is[i].data(), count, offset,
+                                 viz_data->rolling_phase_currents[i].data(), count, offset,
                                  sizeof(Scalar));
                 ImPlot::PopStyleVar();
                 ImPlot::PopStyleColor();
@@ -143,7 +143,7 @@ void draw_phase_currents_plot(const int count, const int offset,
         for (int i = 0; i < 3; ++i) {
             ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
                              viz_data->rolling_timestamps.data(),
-                             viz_data->rolling_is[i].data(), count, offset,
+                             viz_data->rolling_phase_currents[i].data(), count, offset,
                              sizeof(Scalar));
         }
         ImPlot::EndPlot();
@@ -158,7 +158,7 @@ void draw_torque_plot(const int count, const int offset, SimParams* sim_params,
     if (ImPlot::BeginPlot("Torque", "Seconds", "N . m",
                           ImVec2(kPlotWidth, kPlotHeight))) {
         ImPlot::PlotLine("", viz_data->rolling_timestamps.data(),
-                         viz_data->rolling_torques.data(), count, offset,
+                         viz_data->rolling_torque.data(), count, offset,
                          sizeof(Scalar));
         ImPlot::EndPlot();
     }
@@ -185,7 +185,7 @@ void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
     for (int i = 0; i < 3; ++i) {
         viz_data->rolling_phase_vs[i][viz_data->rolling_buffers_next_idx] =
             sim_state->phase_voltages(i);
-        viz_data->rolling_is[i][viz_data->rolling_buffers_next_idx] =
+        viz_data->rolling_phase_currents[i][viz_data->rolling_buffers_next_idx] =
             sim_state->coil_currents(i);
         viz_data->rolling_bEmfs[i][viz_data->rolling_buffers_next_idx] =
             sim_state->bEmfs(i);
@@ -197,7 +197,7 @@ void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
     viz_data->rolling_rotor_angular_vel[viz_data->rolling_buffers_next_idx] =
         sim_state->rotor_angular_vel;
 
-    viz_data->rolling_torques[viz_data->rolling_buffers_next_idx] =
+    viz_data->rolling_torque[viz_data->rolling_buffers_next_idx] =
         sim_state->torque;
 
     rolling_buffer_advance_idx(viz_data->rolling_timestamps.size(),
