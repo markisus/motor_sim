@@ -16,19 +16,36 @@ void init_viz_data(VizData* viz_data) {
         viz_data->circle_xs[i] = std::cos(Scalar(i) / (num_pts - 1) * 2 * kPI);
         viz_data->circle_ys[i] = std::sin(Scalar(i) / (num_pts - 1) * 2 * kPI);
     }
+}
 
-    viz_data->coil_colors[0] =
-        ImColor(0.0f, 0.7490196228f, 1.0f, 1.0f); // Blues::DeepSkyBlue,
-    viz_data->coil_colors[1] = ImColor(1.0f, 0.0f, 0.0f, 1.0f); // Reds::Red
-    viz_data->coil_colors[2] =
-        ImColor(0.4980392158f, 1.0f, 0.0f, 1.0f); // Greens::Chartreuse
+uint32_t get_coil_color(int coil, float alpha) {
+    switch (coil) {
+    case 0:
+        return ImColor(0.0f, 0.7490196228f, 1.0f, alpha); // DeepSkyBlue
+    case 1:
+        return ImColor(1.0f, 0.0f, 0.0f, alpha); // Red
+    case 2:
+        return ImColor(0.4980392158f, 1.0f, 0.0f, alpha); // Greens
+    default:
+        printf("Unhandled coil color %d\n", coil);
+        exit(-1);
+        return -1;
+    }
 }
 
 void draw_electrical_plot(const int count, const int offset,
                           SimParams* sim_params, SimState* sim_state,
                           VizData* viz_data) {
 
-    if (viz_data->show_bEmfs || viz_data->show_phase_currents) {
+    ImGui::Text("Left Axis: Volts");
+    ImGui::Checkbox("Show Phase Voltages", &viz_data->show_phase_voltages);
+    ImGui::SameLine();
+    ImGui::Checkbox("Show bEmfs", &viz_data->show_bEmfs);
+    ImGui::Text("Right Axis: Amperes");
+    ImGui::Checkbox("Show Phase Currents", &viz_data->show_phase_currents);
+
+    if (viz_data->show_bEmfs || viz_data->show_phase_currents ||
+        viz_data->show_phase_voltages) {
         ImGui::Checkbox("Show Coil 0", &viz_data->coil_visible[0]);
         ImGui::SameLine();
         ImGui::Checkbox("Show Coil 1", &viz_data->coil_visible[1]);
@@ -38,18 +55,42 @@ void draw_electrical_plot(const int count, const int offset,
 
     ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
                                sim_state->time, ImGuiCond_Always);
+
+    const bool have_voltage_axis =
+        viz_data->show_bEmfs || viz_data->show_phase_voltages;
+    const bool have_current_axis = viz_data->show_phase_currents;
+
     ImPlot::SetNextPlotLimitsY(-sim_params->bus_voltage,
-                               sim_params->bus_voltage, ImGuiCond_Once);
-    if (ImPlot::BeginPlot("bEMFs", "Seconds", "Volts",
-                          ImVec2(kPlotWidth, kPlotHeight))) {
+                               sim_params->bus_voltage, ImGuiCond_Once, 0);
+
+    ImPlot::SetNextPlotLimitsY(
+        -0.5 * sim_params->bus_voltage / sim_params->phase_resistance,
+        0.5 * sim_params->bus_voltage / sim_params->phase_resistance,
+        ImGuiCond_Once, 1);
+
+    if (ImPlot::BeginPlot("Electrical Plots", "Seconds", nullptr,
+                          ImVec2(kPlotWidth, kPlotHeight),
+                          ImPlotFlags_Default | ImPlotFlags_YAxis2)) {
         for (int i = 0; i < 3; ++i) {
             if (!viz_data->coil_visible[i]) {
                 continue;
             }
 
+            if (viz_data->show_phase_voltages) {
+                ImPlot::SetPlotYAxis(0);
+                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 1.0f));
+                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 1.0f);
+                ImPlot::PlotLine(absl::StrFormat("Coil %d Voltage", i).c_str(),
+                                 viz_data->rolling_timestamps.data(),
+                                 viz_data->rolling_phase_vs[i].data(), count,
+                                 offset, sizeof(Scalar));
+                ImPlot::PopStyleVar();
+                ImPlot::PopStyleColor();
+            }
+
             if (viz_data->show_bEmfs) {
-                ImPlot::PushStyleColor(ImPlotCol_Line,
-                                       viz_data->coil_colors[i]);
+                ImPlot::SetPlotYAxis(0);
+                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.5f));
                 ImPlot::PlotLine(absl::StrFormat("Coil %d bEmf", i).c_str(),
                                  viz_data->rolling_timestamps.data(),
                                  viz_data->rolling_bEmfs[i].data(), count,
@@ -58,11 +99,9 @@ void draw_electrical_plot(const int count, const int offset,
             }
 
             if (viz_data->show_phase_currents) {
-                ImColor transparent_color(viz_data->coil_colors[i]);
-                transparent_color.Value.w = 0.5;
-
+                ImPlot::SetPlotYAxis(1);
                 ImPlot::PushStyleColor(ImPlotCol_Line,
-                                       uint32_t(transparent_color));
+                                       get_coil_color(i, 0.25f));
                 ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 4.0f);
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Current", i).c_str(),
                                  viz_data->rolling_timestamps.data(),
@@ -197,9 +236,9 @@ bool order_of_magnitude_control(const char* label, Scalar* controllee,
     ImGui::Text("%fe%d", base, integral_part);
     ImGui::PushID(label);
     interacted = ImGui::SliderFloat("mantissa", &base, 1.0f, 9.99f);
-    interacted =
-        interacted || ImGui::SliderInt("exponent (base 10)", &integral_part,
-                                       -order_of_magnitude, order_of_magnitude);
+    interacted = ImGui::SliderInt("exponent (base 10)", &integral_part,
+                                  -order_of_magnitude, order_of_magnitude) ||
+                 interacted;
     ImGui::PopID();
 
     *controllee = base * std::pow(10, integral_part);
@@ -251,8 +290,6 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
         viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
         viz_data->rolling_buffers_wrap_around);
 
-    ImGui::Checkbox("Show bEmfs", &viz_data->show_bEmfs);
-    ImGui::Checkbox("Show Phase Currents", &viz_data->show_phase_currents);
     if (viz_data->show_bEmfs || viz_data->show_phase_currents) {
         draw_electrical_plot(rolling_buffer_count, rolling_buffer_offset,
                              sim_params, sim_state, viz_data);

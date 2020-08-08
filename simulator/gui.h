@@ -48,6 +48,7 @@ struct VizData {
     std::array<bool, 3> coil_visible = {true, true, true};
     bool show_bEmfs = true;
     bool show_phase_currents = true;
+    bool show_phase_voltages = true;
     
     int rolling_buffers_next_idx = 0;
     bool rolling_buffers_wrap_around = false;
