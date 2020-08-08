@@ -50,6 +50,8 @@ struct VizData {
     bool show_phase_currents = true;
     bool show_phase_voltages = true;
 
+    
+    float rolling_history = 1; // sec
     int rolling_buffers_next_idx = 0;
     bool rolling_buffers_wrap_around = false;
     std::array<Scalar, kNumRollingPts> rolling_timestamps;

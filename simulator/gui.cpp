@@ -6,9 +6,8 @@
 #include <imgui.h>
 #include <implot.h>
 
-constexpr Scalar kRollingHistory = 1; // sec
-constexpr int kPlotHeight = 250;      // sec
-constexpr int kPlotWidth = -1;        // sec
+constexpr int kPlotHeight = 250; // sec
+constexpr int kPlotWidth = -1;   // sec
 
 void init_viz_data(VizData* viz_data) {
     const int num_pts = viz_data->circle_xs.size();
@@ -57,7 +56,7 @@ void draw_electrical_plot(const int count, const int offset,
         ImGui::Checkbox("Coil 2", &viz_data->coil_visible[2]);
     }
 
-    ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
+    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
                                sim_state->time, ImGuiCond_Always);
 
     const bool have_voltage_axis =
@@ -122,7 +121,7 @@ void draw_electrical_plot(const int count, const int offset,
 void draw_phase_currents_plot(const int count, const int offset,
                               SimParams* sim_params, SimState* sim_state,
                               VizData* viz_data) {
-    ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
+    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
                                sim_state->time, ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(
         -sim_params->bus_voltage / sim_params->phase_resistance,
@@ -141,7 +140,7 @@ void draw_phase_currents_plot(const int count, const int offset,
 
 void draw_torque_plot(const int count, const int offset, SimParams* sim_params,
                       SimState* sim_state, VizData* viz_data) {
-    ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
+    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
                                sim_state->time, ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
     if (ImPlot::BeginPlot("Torque", "Seconds", "N . m",
@@ -156,7 +155,7 @@ void draw_torque_plot(const int count, const int offset, SimParams* sim_params,
 void draw_rotor_angular_vel_plot(const int count, const int offset,
                                  SimParams* sim_params, SimState* sim_state,
                                  VizData* viz_data) {
-    ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
+    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
                                sim_state->time, ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
     if (ImPlot::BeginPlot("Rotor Angular Vel", "Seconds", "Radians / Sec",
@@ -260,13 +259,23 @@ bool Slider(const char* label, Scalar* scalar, Scalar low, Scalar high) {
 }
 
 void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
+    if (!sim_params->paused) {
+        update_rolling_buffers(sim_state, viz_data);
+    }
 
-    ImGui::Begin("Simulation Params");
+    ImGui::Begin("Simulation Control");
+
+    ImGui::Text("Simulation Time: %f", sim_state->time);
     if (sim_params->paused) {
         sim_params->paused = !ImGui::Button("Resume");
     } else {
         sim_params->paused = ImGui::Button("Pause");
     }
+
+    ImGui::SliderInt("Step Multiplier", &sim_params->step_multiplier, 1, 5000);
+
+    ImGui::SliderFloat("Rolling History (sec)", &viz_data->rolling_history,
+                       0.001f, 1.0f);
 
     ImGui::SliderInt("Num Pole Pairs", &sim_params->num_pole_pairs, 1, 8);
 
@@ -288,10 +297,6 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
     ImGui::End();
 
     ImGui::Begin("Electrical Plots");
-
-    if (!sim_params->paused) {
-        update_rolling_buffers(sim_state, viz_data);
-    }
 
     const int rolling_buffer_count = get_rolling_buffer_count(
         viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
