@@ -16,6 +16,12 @@ void init_viz_data(VizData* viz_data) {
         viz_data->circle_xs[i] = std::cos(Scalar(i) / (num_pts - 1) * 2 * kPI);
         viz_data->circle_ys[i] = std::sin(Scalar(i) / (num_pts - 1) * 2 * kPI);
     }
+
+    viz_data->coil_colors[0] =
+        ImColor(0.0f, 0.7490196228f, 1.0f, 1.0f); // Blues::DeepSkyBlue,
+    viz_data->coil_colors[1] = ImColor(1.0f, 0.0f, 0.0f, 1.0f); // Reds::Red
+    viz_data->coil_colors[2] =
+        ImColor(0.4980392158f, 1.0f, 0.0f, 1.0f); // Greens::Chartreuse
 }
 
 void draw_electrical_plot(const int count, const int offset,
@@ -41,10 +47,30 @@ void draw_electrical_plot(const int count, const int offset,
                 continue;
             }
 
-            ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
-                             viz_data->rolling_timestamps.data(),
-                             viz_data->rolling_bEmfs[i].data(), count, offset,
-                             sizeof(Scalar));
+            if (viz_data->show_bEmfs) {
+                ImPlot::PushStyleColor(ImPlotCol_Line,
+                                       viz_data->coil_colors[i]);
+                ImPlot::PlotLine(absl::StrFormat("Coil %d bEmf", i).c_str(),
+                                 viz_data->rolling_timestamps.data(),
+                                 viz_data->rolling_bEmfs[i].data(), count,
+                                 offset, sizeof(Scalar));
+                ImPlot::PopStyleColor();
+            }
+
+            if (viz_data->show_phase_currents) {
+                ImColor transparent_color(viz_data->coil_colors[i]);
+                transparent_color.Value.w = 0.5;
+
+                ImPlot::PushStyleColor(ImPlotCol_Line,
+                                       uint32_t(transparent_color));
+                ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 4.0f);
+                ImPlot::PlotLine(absl::StrFormat("Coil %d Current", i).c_str(),
+                                 viz_data->rolling_timestamps.data(),
+                                 viz_data->rolling_is[i].data(), count, offset,
+                                 sizeof(Scalar));
+                ImPlot::PopStyleVar();
+                ImPlot::PopStyleColor();
+            }
         }
         ImPlot::EndPlot();
     }

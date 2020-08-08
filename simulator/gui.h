@@ -44,6 +44,7 @@ struct VizData {
     std::array<Scalar, 2> bEmf_xs;
     std::array<Scalar, 2> bEmf_ys;
 
+    std::array<uint32_t, 3> coil_colors;
     std::array<bool, 3> coil_visible = {true, true, true};
     bool show_bEmfs = true;
     bool show_phase_currents = true;
