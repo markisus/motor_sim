@@ -27,6 +27,9 @@ struct SimState {
 
     Scalar neutral_voltage;
 
+    // todo: move this
+    Scalar six_step_phase_advance = 0; // proportion of a cycle (0 to 1)
+
     GateState gate_state;
 
     Eigen::Matrix<Scalar, 3, 1> pole_voltages;

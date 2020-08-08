@@ -48,18 +48,22 @@ Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
 }
 
 bool get_commutation_state(Scalar progress) {
-    if (progress < 0) {
+    while (progress <= 0) {
         progress += 1;
+    }
+    while (progress > 1) {
+        progress -= 1;
     }
     return (progress >= 0.5);
 }
 
-std::array<bool, 3> six_step_commutate(const Scalar period,
-                                       const Scalar current_time) {
-    const Scalar progress = std::fmod(current_time, period) / period;
-    return {get_commutation_state(progress),
-            get_commutation_state(progress - 1.0 / 3),
-            get_commutation_state(progress - 2.0 / 3)};
+std::array<bool, 3> six_step_commutate(const Scalar electrical_angle,
+                                       const Scalar phase_advance) {
+    const Scalar progress = std::fmod(electrical_angle, 2 * kPI) / (2 * kPI);
+
+    return {get_commutation_state(progress + phase_advance),
+            get_commutation_state(progress + phase_advance - 1.0 / 3),
+            get_commutation_state(progress + phase_advance - 2.0 / 3)};
 }
 
 void step(const SimParams& params, SimState* state) {
@@ -179,9 +183,8 @@ int main(int argc, char* argv[]) {
         run_gui(&params, &state, &viz_data);
         if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
-                state.gate_state.commanded =
-                    six_step_commutate(/*period=*/1.0, state.time);
-
+                state.gate_state.commanded = six_step_commutate(
+                    state.electrical_angle, state.six_step_phase_advance);
                 step(params, &state);
             }
         }
