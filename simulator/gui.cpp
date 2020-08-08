@@ -8,7 +8,7 @@
 
 constexpr Scalar kRollingHistory = 1; // sec
 constexpr int kPlotHeight = 250;      // sec
-constexpr int kPlotWidth = -1;       // sec
+constexpr int kPlotWidth = -1;        // sec
 
 void init_viz_data(VizData* viz_data) {
     const int num_pts = viz_data->circle_xs.size();
@@ -46,7 +46,7 @@ void draw_electrical_plot(const int count, const int offset,
     ImGui::SameLine();
     ImGui::Checkbox("Phase Currents", &viz_data->show_phase_currents);
 
-    ImGui::Text("Coil Visibility: ");
+    ImGui::Text("Coil Visibility:");
     ImGui::SameLine();
     if (viz_data->show_bEmfs || viz_data->show_phase_currents ||
         viz_data->show_phase_voltages) {
@@ -72,7 +72,7 @@ void draw_electrical_plot(const int count, const int offset,
         0.5 * sim_params->bus_voltage / sim_params->phase_resistance,
         ImGuiCond_Once, 1);
 
-    if (ImPlot::BeginPlot("Electrical Plots", "Seconds", nullptr,
+    if (ImPlot::BeginPlot("##Electrical Plots", "Seconds", nullptr,
                           ImVec2(kPlotWidth, kPlotHeight),
                           ImPlotFlags_Default | ImPlotFlags_YAxis2)) {
         for (int i = 0; i < 3; ++i) {
@@ -259,10 +259,14 @@ bool Slider(const char* label, Scalar* scalar, Scalar low, Scalar high) {
     return interacted;
 }
 
-void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
-             VizData* viz_data) {
+void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
 
     ImGui::Begin("Simulation Params");
+    if (sim_params->paused) {
+        sim_params->paused = !ImGui::Button("Resume");
+    } else {
+        sim_params->paused = ImGui::Button("Pause");
+    }
 
     ImGui::SliderInt("Num Pole Pairs", &sim_params->num_pole_pairs, 1, 8);
 
@@ -285,7 +289,7 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
 
     ImGui::Begin("Electrical Plots");
 
-    if (*should_step) {
+    if (!sim_params->paused) {
         update_rolling_buffers(sim_state, viz_data);
     }
 
@@ -311,7 +315,6 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
     ImGui::End();
 
     ImGui::Begin("Commutation");
-    ImGui::Checkbox("Should Step", should_step);
 
     // Commutation state
     ImGui::Text("Commutation State");

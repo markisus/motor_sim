@@ -158,7 +158,6 @@ int main(int argc, char* argv[]) {
                                             sdl_context.gl_context_);
 
     bool quit_flag = false;
-    bool should_step = false;
     while (!quit_flag) {
         quit_flag = wrappers::process_sdl_imgui_events(sdl_context.window_);
         if (quit_flag) {
@@ -167,8 +166,8 @@ int main(int argc, char* argv[]) {
 
         wrappers::sdl_imgui_newframe(sdl_context.window_);
 
-        run_gui(&params, &state, &should_step, &viz_data);
-        if (should_step) {
+        run_gui(&params, &state, &viz_data);
+        if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
                 step(params, &state);
                 six_step_commutate(params.gate_dead_time, &state);

@@ -5,6 +5,7 @@
 #include <array>
 
 struct SimParams {
+    bool paused = false;
     Scalar dt = 1e-6;          // sec
     int step_multiplier = 5e3; // sec
     Scalar gate_dead_time =

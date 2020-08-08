@@ -49,7 +49,7 @@ struct VizData {
     bool show_bEmfs = true;
     bool show_phase_currents = true;
     bool show_phase_voltages = true;
-    
+
     int rolling_buffers_next_idx = 0;
     bool rolling_buffers_wrap_around = false;
     std::array<Scalar, kNumRollingPts> rolling_timestamps;
@@ -62,5 +62,4 @@ struct VizData {
 
 void init_viz_data(VizData* viz_data);
 
-void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
-             VizData* viz_data);
+void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data);
