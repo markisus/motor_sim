@@ -37,8 +37,10 @@ void draw_electrical_plot(const int count, const int offset,
                           VizData* viz_data) {
 
     ImGui::Text("Left Axis (Volts):");
-    ImGui::SameLine();
     ImGui::Checkbox("Phase Voltages", &viz_data->show_phase_voltages);
+    ImGui::SameLine();
+    ImGui::Checkbox("Normed bEmfs (Volt . seconds)",
+                    &viz_data->show_normalized_bEmfs);
     ImGui::SameLine();
     ImGui::Checkbox("bEmfs", &viz_data->show_bEmfs);
     ImGui::Text("Right Axis (Amperes):");
@@ -91,9 +93,19 @@ void draw_electrical_plot(const int count, const int offset,
                 ImPlot::PopStyleColor();
             }
 
-            if (viz_data->show_bEmfs) {
+            if (viz_data->show_normalized_bEmfs) {
                 ImPlot::SetPlotYAxis(0);
                 ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.5f));
+                ImPlot::PlotLine(absl::StrFormat("Coil %d Normed bEmf", i).c_str(),
+                                 viz_data->rolling_timestamps.data(),
+                                 viz_data->rolling_normalized_bEmfs[i].data(),
+                                 count, offset, sizeof(Scalar));
+                ImPlot::PopStyleColor();
+            }
+
+            if (viz_data->show_bEmfs) {
+                ImPlot::SetPlotYAxis(0);
+                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.3f));
                 ImPlot::PlotLine(absl::StrFormat("Coil %d bEmf", i).c_str(),
                                  viz_data->rolling_timestamps.data(),
                                  viz_data->rolling_bEmfs[i].data(), count,
@@ -177,6 +189,9 @@ void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
             sim_state->coil_currents(i);
         viz_data->rolling_bEmfs[i][viz_data->rolling_buffers_next_idx] =
             sim_state->bEmfs(i);
+        viz_data
+            ->rolling_normalized_bEmfs[i][viz_data->rolling_buffers_next_idx] =
+            sim_state->normalized_bEmfs(i);
     }
 
     viz_data->rolling_rotor_angular_vel[viz_data->rolling_buffers_next_idx] =

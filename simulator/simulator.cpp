@@ -97,16 +97,14 @@ void step(const SimParams& params, SimState* state) {
         }
     }
 
-    // compute normalized back emfs
-    Eigen::Matrix<Scalar, 3, 1> normalized_bEmfs;
-    normalized_bEmfs << // clang-format off
+    state->normalized_bEmfs << // clang-format off
         get_back_emf(params.normalized_bEmf_coeffs, state->electrical_angle),
         get_back_emf(params.normalized_bEmf_coeffs,
                      state->electrical_angle - 2 * kPI / 3),
         get_back_emf(params.normalized_bEmf_coeffs,
                      state->electrical_angle - 4 * kPI / 3); // clang-format on
 
-    state->bEmfs = normalized_bEmfs * state->rotor_angular_vel;
+    state->bEmfs = state->normalized_bEmfs * state->rotor_angular_vel;
 
     // compute neutral point voltage
     // todo: derivation
@@ -127,7 +125,7 @@ void step(const SimParams& params, SimState* state) {
 
     state->coil_currents += di_dt * params.dt;
 
-    state->torque = state->coil_currents.dot(normalized_bEmfs);
+    state->torque = state->coil_currents.dot(state->normalized_bEmfs);
 
     state->rotor_angular_accel = state->torque / params.rotor_inertia;
     state->rotor_angular_vel += state->rotor_angular_accel * params.dt;

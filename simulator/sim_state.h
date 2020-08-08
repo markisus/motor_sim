@@ -36,6 +36,12 @@ struct SimState {
     Eigen::Matrix<Scalar, 3, 1> phase_voltages;
     Eigen::Matrix<Scalar, 3, 1> coil_currents;
     Eigen::Matrix<Scalar, 3, 1> bEmfs;
+    Eigen::Matrix<Scalar, 3, 1>
+        normalized_bEmfs; // units of V . s,
+                          // aka N . m / Amps
+                          // same thing as
+                          // - phase torque function
+                          // - derivative of rotor stator flux linkage wrt angle
 };
 
 inline void init_sim_state(SimState* state) {
