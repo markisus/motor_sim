@@ -219,7 +219,7 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
 }
 
 bool order_of_magnitude_control(const char* label, Scalar* controllee,
-                                const int order_of_magnitude = 4) {
+                                const int exp_min = -4, const int exp_max = 4) {
     bool interacted = false;
     Scalar l10 = std::log10(*controllee);
 
@@ -240,8 +240,8 @@ bool order_of_magnitude_control(const char* label, Scalar* controllee,
     ImGui::Text("%fe%d", base, integral_part);
     ImGui::PushID(label);
     interacted = ImGui::SliderFloat("mantissa", &base, 1.0f, 9.99f);
-    interacted = ImGui::SliderInt("exponent (base 10)", &integral_part,
-                                  -order_of_magnitude, order_of_magnitude) ||
+    interacted = ImGui::SliderInt("exponent (base 10)", &integral_part, exp_min,
+                                  exp_max) ||
                  interacted;
     ImGui::PopID();
 
