@@ -13,10 +13,31 @@
 #include <implot.h>
 #include <iostream>
 
-// literals for use with switch states
-constexpr int LOW = 0;
-constexpr int HIGH = 1;
-constexpr int OFF = 2;
+int to_gate_enum(bool command) { return command ? HIGH : LOW; }
+
+void update_gate_state(const Scalar dead_time, const Scalar current_time,
+                       GateState* gate_state) {
+    for (int i = 0; i < 3; ++i) {
+        const int command = gate_state->commanded[i] ? HIGH : LOW;
+
+        if (gate_state->actual[i] == command) {
+            // nothing to do here
+            continue;
+        }
+
+        if (gate_state->actual[i] == OFF) {
+            // see if sufficient dead time has been acheived
+            if (current_time - gate_state->last_commutation_times[i] >
+                dead_time) {
+                gate_state->actual[i] = command;
+            }
+        } else {
+            // gate is actually on - need to enter dead time
+            gate_state->actual[i] = OFF;
+            gate_state->last_commutation_times[i] = current_time;
+        }
+    }
+}
 
 Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
                     const Scalar electrical_angle) {
@@ -26,58 +47,45 @@ Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
     return sines.dot(normalized_bEmf_coeffs);
 }
 
-int get_commutation_state(const Scalar dead_time, Scalar progress) {
+bool get_commutation_state(Scalar progress) {
     if (progress < 0) {
         progress += 1;
     }
-    if (progress < dead_time) {
-        return OFF;
-    }
-    if (progress >= 0.5 && progress < 0.5 + dead_time) {
-        return OFF;
-    }
-    if (progress < 0.5) {
-        return LOW;
-    }
-    if (progress >= 0.5) {
-        return HIGH;
-    }
+    return (progress >= 0.5);
 }
 
-void six_step_commutate(const Scalar dead_time, SimState* state) {
-    constexpr Scalar period = 3.0; // seconds
-
-    Scalar progress = state->electrical_angle / (2 * kPI);
-
-    state->switches[0] = get_commutation_state(dead_time, progress);
-    state->switches[1] = get_commutation_state(dead_time, progress - 1.0 / 3);
-    state->switches[2] = get_commutation_state(dead_time, progress - 2.0 / 3);
+std::array<bool, 3> six_step_commutate(const Scalar period,
+                                       const Scalar current_time) {
+    const Scalar progress = std::fmod(current_time, period) / period;
+    return {get_commutation_state(progress),
+            get_commutation_state(progress - 1.0 / 3),
+            get_commutation_state(progress - 2.0 / 3)};
 }
 
 void step(const SimParams& params, SimState* state) {
-    state->time += params.dt;
+    update_gate_state(params.gate_dead_time, state->time, &state->gate_state);
 
     // apply pole voltages
-    for (int n = 0; n < 3; ++n) {
+    for (int i = 0; i < 3; ++i) {
         Scalar v_pole = 0;
-        switch (state->switches[n]) {
+        switch (state->gate_state.actual[i]) {
         case OFF:
             // todo: derivation
-            if (state->coil_currents(n) > 0) {
-                state->pole_voltages(n) = 0;
+            if (state->coil_currents(i) > 0) {
+                state->pole_voltages(i) = 0;
             } else {
-                state->pole_voltages(n) = params.bus_voltage;
+                state->pole_voltages(i) = params.bus_voltage;
             }
-            if (std::abs(state->coil_currents(n)) >
+            if (std::abs(state->coil_currents(i)) >
                 params.diode_active_current) {
-                state->pole_voltages(n) -= params.diode_active_voltage;
+                state->pole_voltages(i) -= params.diode_active_voltage;
             }
             break;
         case HIGH:
-            state->pole_voltages(n) = params.bus_voltage;
+            state->pole_voltages(i) = params.bus_voltage;
             break;
         case LOW:
-            state->pole_voltages(n) = 0;
+            state->pole_voltages(i) = 0;
             break;
         default:
             printf("Unhandled switch case!");
@@ -101,15 +109,15 @@ void step(const SimParams& params, SimState* state) {
     state->neutral_voltage =
         (state->pole_voltages.sum() - state->bEmfs.sum()) / 3;
 
-    for (int n = 0; n < 3; ++n) {
-        state->phase_voltages(n) =
-            state->pole_voltages(n) - state->neutral_voltage;
+    for (int i = 0; i < 3; ++i) {
+        state->phase_voltages(i) =
+            state->pole_voltages(i) - state->neutral_voltage;
     }
 
     Eigen::Matrix<Scalar, 3, 1> di_dt;
-    for (int n = 0; n < 3; ++n) {
-        di_dt(n) = (state->phase_voltages(n) - state->bEmfs(n) -
-                    state->coil_currents(n) * params.phase_resistance) /
+    for (int i = 0; i < 3; ++i) {
+        di_dt(i) = (state->phase_voltages(i) - state->bEmfs(i) -
+                    state->coil_currents(i) * params.phase_resistance) /
                    params.phase_inductance;
     }
 
@@ -127,6 +135,8 @@ void step(const SimParams& params, SimState* state) {
 
     state->electrical_angle = state->rotor_angle * params.num_pole_pairs;
     state->electrical_angle = std::fmod(state->electrical_angle, 2 * kPI);
+
+    state->time += params.dt;
 }
 
 using namespace biro;
@@ -169,8 +179,10 @@ int main(int argc, char* argv[]) {
         run_gui(&params, &state, &viz_data);
         if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
+                state.gate_state.commanded =
+                    six_step_commutate(/*period=*/1.0, state.time);
+
                 step(params, &state);
-                six_step_commutate(params.gate_dead_time, &state);
             }
         }
 
@@ -188,6 +200,5 @@ int main(int argc, char* argv[]) {
         SDL_GL_SwapWindow(sdl_context.window_);
     }
 
-    step(params, &state);
     return 0;
 }

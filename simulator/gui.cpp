@@ -327,11 +327,11 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
         ImGui::Text("Gate %d:", n);
         ImGui::SameLine();
         ImGui::PushID(n);
-        ImGui::RadioButton("Low", &sim_state->switches[n], 0);
+        ImGui::RadioButton("Low", &sim_state->gate_state.actual[n], 0);
         ImGui::SameLine();
-        ImGui::RadioButton("High", &sim_state->switches[n], 1);
+        ImGui::RadioButton("High", &sim_state->gate_state.actual[n], 1);
         ImGui::SameLine();
-        ImGui::RadioButton("Off", &sim_state->switches[n], 2);
+        ImGui::RadioButton("Off", &sim_state->gate_state.actual[n], 2);
         ImGui::PopID();
     }
 
