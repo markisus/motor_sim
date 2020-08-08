@@ -8,7 +8,7 @@
 
 constexpr Scalar kRollingHistory = 1; // sec
 constexpr int kPlotHeight = 250;      // sec
-constexpr int kPlotWidth = 350;       // sec
+constexpr int kPlotWidth = -1;       // sec
 
 void init_viz_data(VizData* viz_data) {
     const int num_pts = viz_data->circle_xs.size();
@@ -37,20 +37,24 @@ void draw_electrical_plot(const int count, const int offset,
                           SimParams* sim_params, SimState* sim_state,
                           VizData* viz_data) {
 
-    ImGui::Text("Left Axis: Volts");
-    ImGui::Checkbox("Show Phase Voltages", &viz_data->show_phase_voltages);
+    ImGui::Text("Left Axis (Volts):");
     ImGui::SameLine();
-    ImGui::Checkbox("Show bEmfs", &viz_data->show_bEmfs);
-    ImGui::Text("Right Axis: Amperes");
-    ImGui::Checkbox("Show Phase Currents", &viz_data->show_phase_currents);
+    ImGui::Checkbox("Phase Voltages", &viz_data->show_phase_voltages);
+    ImGui::SameLine();
+    ImGui::Checkbox("bEmfs", &viz_data->show_bEmfs);
+    ImGui::Text("Right Axis (Amperes):");
+    ImGui::SameLine();
+    ImGui::Checkbox("Phase Currents", &viz_data->show_phase_currents);
 
+    ImGui::Text("Coil Visibility: ");
+    ImGui::SameLine();
     if (viz_data->show_bEmfs || viz_data->show_phase_currents ||
         viz_data->show_phase_voltages) {
-        ImGui::Checkbox("Show Coil 0", &viz_data->coil_visible[0]);
+        ImGui::Checkbox("Coil 0", &viz_data->coil_visible[0]);
         ImGui::SameLine();
-        ImGui::Checkbox("Show Coil 1", &viz_data->coil_visible[1]);
+        ImGui::Checkbox("Coil 1", &viz_data->coil_visible[1]);
         ImGui::SameLine();
-        ImGui::Checkbox("Show Coil 2", &viz_data->coil_visible[2]);
+        ImGui::Checkbox("Coil 2", &viz_data->coil_visible[2]);
     }
 
     ImPlot::SetNextPlotLimitsX(sim_state->time - kRollingHistory,
@@ -192,7 +196,7 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
                               /*x_max=*/1.5,
                               /*y_min=*/-1.5,
                               /*y_max=*/1.5);
-    if (ImPlot::BeginPlot("Rotor Angle", nullptr, nullptr, ImVec2{300, 300},
+    if (ImPlot::BeginPlot("##Rotor Angle", nullptr, nullptr, ImVec2{150, 150},
                           ImPlotFlags_Default & !ImPlotFlags_Legend,
                           ImPlotAxisFlags_Default & ~ImPlotAxisFlags_TickLabels,
                           ImPlotAxisFlags_Default &
@@ -260,6 +264,8 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
 
     ImGui::Begin("Simulation Params");
 
+    ImGui::SliderInt("Num Pole Pairs", &sim_params->num_pole_pairs, 1, 8);
+
     Slider("Rotor Moment of Inertia (kg m^2)", &sim_params->rotor_inertia, 0.1,
            10);
 
@@ -277,7 +283,7 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
     draw_rotor_plot(sim_state, viz_data);
     ImGui::End();
 
-    ImGui::Begin("Plots");
+    ImGui::Begin("Electrical Plots");
 
     if (*should_step) {
         update_rolling_buffers(sim_state, viz_data);
@@ -290,28 +296,22 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
         viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
         viz_data->rolling_buffers_wrap_around);
 
-    if (viz_data->show_bEmfs || viz_data->show_phase_currents) {
-        draw_electrical_plot(rolling_buffer_count, rolling_buffer_offset,
-                             sim_params, sim_state, viz_data);
-    }
+    draw_electrical_plot(rolling_buffer_count, rolling_buffer_offset,
+                         sim_params, sim_state, viz_data);
 
-    // dynamics
+    ImGui::End();
+
+    ImGui::Begin("Dynamics Plots");
     draw_rotor_angular_vel_plot(rolling_buffer_count, rolling_buffer_offset,
                                 sim_params, sim_state, viz_data);
-    ImGui::SameLine();
+
     draw_torque_plot(rolling_buffer_count, rolling_buffer_offset, sim_params,
                      sim_state, viz_data);
 
     ImGui::End();
 
-    ImGui::Begin("Simulation");
+    ImGui::Begin("Commutation");
     ImGui::Checkbox("Should Step", should_step);
-
-    ImGui::Text("Bus Voltage: %f", sim_params->bus_voltage);
-    ImGui::Text("Phase Inductance: %f", sim_params->phase_inductance);
-    ImGui::Text("Phase Resistance: %f", sim_params->phase_resistance);
-    ImGui::Text("Num Pole Pairs: %d", sim_params->num_pole_pairs);
-    ImGui::Text("Rotor Moment of Inertia: %f", sim_params->rotor_inertia);
 
     // Commutation state
     ImGui::Text("Commutation State");
@@ -326,25 +326,6 @@ void run_gui(SimParams* sim_params, SimState* sim_state, bool* should_step,
         ImGui::RadioButton("Off", &sim_state->switches[n], 2);
         ImGui::PopID();
     }
-
-    ImGui::Text("Electrical State");
-    ImGui::Text("Neutral Voltage: %f", sim_state->neutral_voltage);
-    for (int n = 0; n < 3; ++n) {
-        ImGui::Text("Pole %d voltage: %f", n, sim_state->pole_voltages(n));
-    }
-
-    for (int n = 0; n < 3; ++n) {
-        ImGui::Text("Coil %d Current: %f", n, sim_state->coil_currents(n));
-        ImGui::Text("Coil %d Phase Voltage: %f", n,
-                    sim_state->phase_voltages(n));
-        ImGui::Text("Coil %d Back Emf: %f", n, sim_state->bEmfs(n));
-    }
-
-    ImGui::Text("Torque: %f", sim_state->torque);
-    ImGui::Text("Rotor Angle: %f", sim_state->rotor_angle);
-    ImGui::Text("Rotor Angular Velocity: %f", sim_state->rotor_angular_vel);
-    ImGui::Text("Rotor Angular Acceleration: %f",
-                sim_state->rotor_angular_accel);
 
     ImGui::End();
 }
