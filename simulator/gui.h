@@ -38,9 +38,6 @@ struct VizData {
     std::array<Scalar, 50> circle_xs;
     std::array<Scalar, 50> circle_ys;
 
-    std::array<Scalar, 2> angle_xs_rotor;
-    std::array<Scalar, 2> angle_ys_rotor;
-
     std::array<uint32_t, 3> coil_colors;
     std::array<bool, 3> coil_visible = {true, false, false};
     bool show_bEmfs = false;

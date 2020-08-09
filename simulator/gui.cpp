@@ -96,10 +96,11 @@ void draw_electrical_plot(const int count, const int offset,
             if (viz_data->show_normalized_bEmfs) {
                 ImPlot::SetPlotYAxis(0);
                 ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.8f));
-                ImPlot::PlotLine(absl::StrFormat("Coil %d Normed bEmf", i).c_str(),
-                                 viz_data->rolling_timestamps.data(),
-                                 viz_data->rolling_normalized_bEmfs[i].data(),
-                                 count, offset, sizeof(Scalar));
+                ImPlot::PlotLine(
+                    absl::StrFormat("Coil %d Normed bEmf", i).c_str(),
+                    viz_data->rolling_timestamps.data(),
+                    viz_data->rolling_normalized_bEmfs[i].data(), count, offset,
+                    sizeof(Scalar));
                 ImPlot::PopStyleColor();
             }
 
@@ -115,13 +116,12 @@ void draw_electrical_plot(const int count, const int offset,
 
             if (viz_data->show_phase_currents) {
                 ImPlot::SetPlotYAxis(1);
-                ImPlot::PushStyleColor(ImPlotCol_Line,
-                                       get_coil_color(i, 0.3f));
+                ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.3f));
                 ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 4.0f);
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Current", i).c_str(),
                                  viz_data->rolling_timestamps.data(),
-                                 viz_data->rolling_phase_currents[i].data(), count, offset,
-                                 sizeof(Scalar));
+                                 viz_data->rolling_phase_currents[i].data(),
+                                 count, offset, sizeof(Scalar));
                 ImPlot::PopStyleVar();
                 ImPlot::PopStyleColor();
             }
@@ -143,8 +143,8 @@ void draw_phase_currents_plot(const int count, const int offset,
         for (int i = 0; i < 3; ++i) {
             ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
                              viz_data->rolling_timestamps.data(),
-                             viz_data->rolling_phase_currents[i].data(), count, offset,
-                             sizeof(Scalar));
+                             viz_data->rolling_phase_currents[i].data(), count,
+                             offset, sizeof(Scalar));
         }
         ImPlot::EndPlot();
     }
@@ -185,7 +185,8 @@ void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
     for (int i = 0; i < 3; ++i) {
         viz_data->rolling_phase_vs[i][viz_data->rolling_buffers_next_idx] =
             sim_state->phase_voltages(i);
-        viz_data->rolling_phase_currents[i][viz_data->rolling_buffers_next_idx] =
+        viz_data
+            ->rolling_phase_currents[i][viz_data->rolling_buffers_next_idx] =
             sim_state->coil_currents(i);
         viz_data->rolling_bEmfs[i][viz_data->rolling_buffers_next_idx] =
             sim_state->bEmfs(i);
@@ -205,6 +206,17 @@ void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
                                &viz_data->rolling_buffers_wrap_around);
 }
 
+void implot_radial_line(const char* name, float inner_radius,
+                        float outer_radius, float angle) {
+    const float cos_angle = (float)std::cos(angle);
+    const float sin_angle = (float)std::sin(angle);
+    std::array<float, 2> xs = {inner_radius * cos_angle,
+                               outer_radius * cos_angle};
+    std::array<float, 2> ys = {inner_radius * sin_angle,
+                               outer_radius * sin_angle};
+    ImPlot::PlotLine(name, xs.data(), ys.data(), 2);
+}
+
 void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
     ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
                               /*x_max=*/1.5,
@@ -215,18 +227,18 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
                           ImPlotAxisFlags_Default & ~ImPlotAxisFlags_TickLabels,
                           ImPlotAxisFlags_Default &
                               ~ImPlotAxisFlags_TickLabels)) {
-        const Scalar cos_angle = std::cos(sim_state->rotor_angle);
-        const Scalar sin_angle = std::sin(sim_state->rotor_angle);
-        viz_data->angle_xs_rotor = {0.5f * cos_angle, 1.2f * cos_angle};
-        viz_data->angle_ys_rotor = {0.5f * sin_angle, 1.2f * sin_angle};
 
         ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, /*weight=*/1.0f);
         ImPlot::PlotLine("Rotor Circle", viz_data->circle_xs.data(),
                          viz_data->circle_ys.data(),
                          viz_data->circle_xs.size());
-        ImPlot::PlotLine("Rotor Angle", viz_data->angle_xs_rotor.data(),
-                         viz_data->angle_ys_rotor.data(),
-                         viz_data->angle_xs_rotor.size());
+        implot_radial_line("Rotor Angle", 0.5f, 1.5f,
+                           sim_state->electrical_angle);
+        ImPlot::PopStyleVar(1);
+        ImPlot::EndPlot();
+    }
+}
+
         ImPlot::PopStyleVar(1);
         ImPlot::EndPlot();
     }
