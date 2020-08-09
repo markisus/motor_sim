@@ -1,4 +1,5 @@
 #include "gui.h"
+#include "clarke_transform.h"
 #include "pi.h"
 #include "scalar.h"
 #include "sim_params.h"
@@ -217,6 +218,12 @@ void implot_radial_line(const char* name, float inner_radius,
     ImPlot::PlotLine(name, xs.data(), ys.data(), 2);
 }
 
+void implot_central_line(const char* name, float x, float y) {
+    std::array<float, 2> xs = {0, x};
+    std::array<float, 2> ys = {0, y};
+    ImPlot::PlotLine(name, xs.data(), ys.data(), 2);
+}
+
 void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
     ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
                               /*x_max=*/1.5,
@@ -232,12 +239,40 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
         ImPlot::PlotLine("Rotor Circle", viz_data->circle_xs.data(),
                          viz_data->circle_ys.data(),
                          viz_data->circle_xs.size());
-        implot_radial_line("Rotor Angle", 0.5f, 1.5f,
-                           sim_state->electrical_angle);
+        implot_radial_line("Rotor Angle", 0.5f, 0.9f, sim_state->rotor_angle);
         ImPlot::PopStyleVar(1);
         ImPlot::EndPlot();
     }
 }
+
+void draw_space_vector_plot(SimState* sim_state, VizData* viz_data) {
+    ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
+                              /*x_max=*/1.5,
+                              /*y_min=*/-1.5,
+                              /*y_max=*/1.5);
+    if (ImPlot::BeginPlot("##Space Vector Plot", nullptr, nullptr,
+                          ImVec2{300, 300}, ImPlotFlags_Default,
+                          ImPlotAxisFlags_Default & ~ImPlotAxisFlags_TickLabels,
+                          ImPlotAxisFlags_Default &
+                              ~ImPlotAxisFlags_TickLabels)) {
+
+        ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, /*weight=*/1.0f);
+        ImPlot::PlotLine("##Electrical Circle", viz_data->circle_xs.data(),
+                         viz_data->circle_ys.data(),
+                         viz_data->circle_xs.size());
+
+        implot_radial_line("Rotor Angle", 0.5f, 0.9f,
+                           sim_state->electrical_angle);
+
+        const Eigen::Matrix<Scalar, 2, 1> current_sv =
+            kClarkeTransform2x3 * sim_state->coil_currents;
+        implot_central_line("Current Space Vector", current_sv(0),
+                            current_sv(1));
+
+        const Eigen::Matrix<Scalar, 2, 1> normed_bEmf_sv =
+            kClarkeTransform2x3 * sim_state->normalized_bEmfs;
+        implot_central_line("Normed bEmf Space Vector", normed_bEmf_sv(0),
+                            normed_bEmf_sv(1));
 
         ImPlot::PopStyleVar(1);
         ImPlot::EndPlot();
@@ -321,6 +356,10 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
 
     ImGui::Begin("Rotor Viz");
     draw_rotor_plot(sim_state, viz_data);
+    ImGui::End();
+
+    ImGui::Begin("Space Vector Viz");
+    draw_space_vector_plot(sim_state, viz_data);
     ImGui::End();
 
     ImGui::Begin("Electrical Plots");
