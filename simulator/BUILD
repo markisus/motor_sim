@@ -7,6 +7,17 @@ LINKOPTS = select({
     "//conditions:default": ["-lstdc++fs"],})
 
 cc_library(
+    name = "clarke_transform",
+    hdrs = ["clarke_transform.h"],
+    srcs = [
+        "clarke_transform.h",
+        "clarke_transform.cpp"],
+    deps = [
+        ":scalar",
+        "//third_party/eigen:eigen"]
+)
+
+cc_library(
     name = "sim_state",
     hdrs = ["sim_state.h"],
     deps = ["//third_party/eigen:eigen"]
