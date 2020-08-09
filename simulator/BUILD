@@ -18,6 +18,16 @@ cc_library(
 )
 
 cc_library(
+    name = "pi_control",
+    hdrs = ["pi_control.h"],
+    srcs = ["pi_control.cpp",
+            "pi_control.h"],
+    deps = [
+        ":scalar"],
+    copts = COPTS,
+)
+
+cc_library(
     name = "sim_state",
     hdrs = ["sim_state.h"],
     deps = ["//third_party/eigen:eigen"]
