@@ -1,6 +1,8 @@
 #include "clarke_transform.h"
 #include <cmath>
 
+const Scalar kClarkeScale = std::sqrt(2.0 / 3);
+
 Eigen::Matrix<Scalar, 3, 3> make_clarke_transform() {
     const Scalar sqrt2 = std::sqrt(2.0);
     const Scalar sqrt3 = std::sqrt(3.0);

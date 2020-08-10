@@ -7,15 +7,57 @@ LINKOPTS = select({
     "//conditions:default": ["-lstdc++fs"],})
 
 cc_library(
+    name = "conversions",
+    hdrs = ["conversions.h"])
+
+cc_library(
     name = "clarke_transform",
     hdrs = ["clarke_transform.h"],
     srcs = [
         "clarke_transform.h",
         "clarke_transform.cpp"],
     deps = [
+        "//third_party/eigen:eigen",
         ":scalar",
-        "//third_party/eigen:eigen"]
+    ]
 )
+
+cc_binary(
+    name = "clarke_transform_test",
+    srcs = ["clarke_transform_test.cpp"],
+    deps = [
+        ":clarke_transform",
+        "@com_github_google_googletest//:gtest_main",
+    ]
+)
+
+cc_library(
+    name = "space_vector_modulation",
+    hdrs = ["space_vector_modulation.h"],
+    srcs = [
+        "space_vector_modulation.cpp",
+        "space_vector_modulation.h"],
+    deps = [
+        "//global_debug:global_debug",
+        "//third_party/eigen:eigen"
+        ":clarke_transform",
+        ":conversions",
+        ":pi",
+        ":scalar",
+    ]
+)
+
+cc_binary(
+    name = "space_vector_modulation_test",
+    srcs = ["space_vector_modulation_test.cpp"],
+    deps = [
+        "//global_debug:global_debug",
+        ":pi",
+        ":scalar",
+        ":space_vector_modulation",
+        "@com_github_google_googletest//:gtest_main",
+    ])
+    
 
 cc_library(
     name = "pi_control",
@@ -58,7 +100,6 @@ cc_library(
     deps = [":scalar"]
 )
 
-
 cc_library(
     name = "sim_params",
     hdrs = ["sim_params.h"],
@@ -72,10 +113,12 @@ cc_binary(
     name = "simulator",
     srcs = ["simulator.cpp"],
     deps = [
+        ":clarke_transform",
+        ":conversions",
         ":gui",
         ":scalar",
-        ":sine_series",
         ":sim_params",
+        ":sine_series",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",

@@ -1,5 +1,8 @@
+#include "clarke_transform.h"
+#include "conversions.h"
 #include "gui.h"
 #include "pi.h"
+#include "pi_control.h"
 #include "scalar.h"
 #include "sim_params.h"
 #include "sine_series.h"
@@ -12,6 +15,15 @@
 #include <glad/glad.h>
 #include <implot.h>
 #include <iostream>
+
+PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
+                              Scalar inductance) {
+    PiParams params;
+    params.p_gain = inductance * bandwidth;
+    params.i_gain = resistance * bandwidth;
+    params.max_integral = 10.0; // how to set this?
+    return params;
+}
 
 int to_gate_enum(bool command) { return command ? HIGH : LOW; }
 
