@@ -1,5 +1,6 @@
 #include "gui.h"
 #include "clarke_transform.h"
+#include "conversions.h"
 #include "pi.h"
 #include "scalar.h"
 #include "sim_params.h"
@@ -246,6 +247,8 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
 }
 
 void draw_space_vector_plot(SimState* sim_state, VizData* viz_data) {
+    ImGui::Checkbox("Use Rotor Frame", &viz_data->use_rotor_frame);
+
     ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
                               /*x_max=*/1.5,
                               /*y_min=*/-1.5,
@@ -261,23 +264,40 @@ void draw_space_vector_plot(SimState* sim_state, VizData* viz_data) {
                          viz_data->circle_ys.data(),
                          viz_data->circle_xs.size());
 
-        implot_radial_line("Rotor Angle", 0.5f, 0.9f,
-                           sim_state->electrical_angle);
+        implot_radial_line(
+            "Rotor Angle", 0.5f, 0.9f,
+            viz_data->use_rotor_frame ? 0 : sim_state->electrical_angle);
 
-        const Eigen::Matrix<Scalar, 2, 1> phase_voltage_sv =
-            kClarkeTransform2x3 * sim_state->phase_voltages;
-        implot_central_line("Phase Voltage Space Vector", phase_voltage_sv(0),
-                            phase_voltage_sv(1));
+        const std::complex<Scalar> park_transform{
+            std::cos(-sim_state->electrical_angle),
+            std::sin(-sim_state->electrical_angle)};
 
-        const Eigen::Matrix<Scalar, 2, 1> current_sv =
-            kClarkeTransform2x3 * sim_state->coil_currents;
-        implot_central_line("Current Space Vector", current_sv(0),
-                            current_sv(1));
+        std::complex<Scalar> phase_voltage_sv =
+            to_complex<Scalar>(kClarkeTransform2x3 * sim_state->phase_voltages);
+        if (viz_data->use_rotor_frame) {
+            phase_voltage_sv *= park_transform;
+        }
 
-        const Eigen::Matrix<Scalar, 2, 1> normed_bEmf_sv =
-            kClarkeTransform2x3 * sim_state->normalized_bEmfs;
-        implot_central_line("Normed bEmf Space Vector", normed_bEmf_sv(0),
-                            normed_bEmf_sv(1));
+        implot_central_line("Phase Voltage Space Vector",
+                            phase_voltage_sv.real(), phase_voltage_sv.imag());
+
+        std::complex<Scalar> current_sv =
+            to_complex<Scalar>(kClarkeTransform2x3 * sim_state->coil_currents);
+        if (viz_data->use_rotor_frame) {
+            current_sv *= park_transform;
+        }
+
+        implot_central_line("Current Space Vector", current_sv.real(),
+                            current_sv.imag());
+
+        std::complex<Scalar> normed_bEmf_sv = to_complex<Scalar>(
+            kClarkeTransform2x3 * sim_state->normalized_bEmfs);
+        if (viz_data->use_rotor_frame) {
+            normed_bEmf_sv *= park_transform;
+        }
+
+        implot_central_line("Normed bEmf Space Vector", normed_bEmf_sv.real(),
+                            normed_bEmf_sv.imag());
 
         ImPlot::PopStyleVar(1);
         ImPlot::EndPlot();

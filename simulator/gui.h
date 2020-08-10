@@ -45,6 +45,7 @@ struct VizData {
     bool show_phase_currents = true;
     bool show_phase_voltages = true;
 
+    bool use_rotor_frame = true; // space vector viz
     
     float rolling_history = 1; // sec
     int rolling_buffers_next_idx = 0;

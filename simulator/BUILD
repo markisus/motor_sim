@@ -81,6 +81,7 @@ cc_library(
     hdrs = ["gui.h"],
     deps = [
         ":clarke_transform",
+        ":conversions",
         ":pi",
         ":scalar",
         ":sim_params",
