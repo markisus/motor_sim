@@ -22,13 +22,13 @@ PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
     PiParams params;
     params.p_gain = inductance * bandwidth;
     params.i_gain = resistance * bandwidth;
-    params.max_integral = 10.0; // how to set this?
+    params.max_integral = std::numeric_limits<Scalar>::infinity();
     return params;
 }
 
 int to_gate_enum(bool command) { return command ? HIGH : LOW; }
 
-void update_gate_state(const Scalar dead_time, const Scalar current_time,
+void update_gate_state(const Scalar dead_time, const Scalar dt,
                        GateState* gate_state) {
     for (int i = 0; i < 3; ++i) {
         const int command = gate_state->commanded[i] ? HIGH : LOW;
@@ -39,15 +39,16 @@ void update_gate_state(const Scalar dead_time, const Scalar current_time,
         }
 
         if (gate_state->actual[i] == OFF) {
+            dead_time_remaining[i] -= dt;
+
             // see if sufficient dead time has been acheived
-            if (current_time - gate_state->last_commutation_times[i] >
-                dead_time) {
+            if (dead_time_remaining[i] <= 0) {
                 gate_state->actual[i] = command;
             }
         } else {
             // gate is actually on - need to enter dead time
             gate_state->actual[i] = OFF;
-            gate_state->last_commutation_times[i] = current_time;
+            gate_state->dead_time_remaining[i] = dead_time;
         }
     }
 }
@@ -80,7 +81,7 @@ std::array<bool, 3> six_step_commutate(const Scalar electrical_angle,
 }
 
 void step(const SimParams& params, SimState* state) {
-    update_gate_state(params.gate_dead_time, state->time, &state->gate_state);
+    update_gate_state(params.gate_dead_time, params.dt, &state->gate_state);
 
     // apply pole voltages
     for (int i = 0; i < 3; ++i) {
@@ -150,8 +151,6 @@ void step(const SimParams& params, SimState* state) {
 
     state->electrical_angle = state->rotor_angle * params.num_pole_pairs;
     state->electrical_angle = std::fmod(state->electrical_angle, 2 * kPI);
-
-    state->time += params.dt;
 }
 
 using namespace biro;
@@ -228,10 +227,10 @@ int main(int argc, char* argv[]) {
 
                     const Scalar voltage_q_coupled = pi_control(
                         current_controller_params, &current_q_pi_context,
-                        state.time, current_qd.real(), desired_current_q);
+                        params.dt, current_qd.real(), desired_current_q);
                     const Scalar voltage_d_coupled = pi_control(
                         current_controller_params, &current_q_pi_context,
-                        state.time, current_qd.imag(), 0);
+                        params.dt, current_qd.imag(), 0);
 
                     const std::complex<Scalar> voltage_qd_coupled = {
                         voltage_q_coupled, voltage_d_coupled};
@@ -254,6 +253,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 step(params, &state);
+                state->time += params.dt;
             }
         }
 

@@ -1,0 +1,4 @@
+#pragma once
+
+constexpr double kPI = 3.14159265358979323846264338327950288;
+

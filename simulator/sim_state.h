@@ -35,7 +35,7 @@ inline std::array<bool, 3> get_pwm_gate_command(const PwmState& state) {
 struct GateState {
     std::array<bool, 3> commanded = {};
     std::array<int, 3> actual = {OFF, OFF, OFF};
-    std::array<Scalar, 3> last_commutation_times = {};
+    std::array<Scalar, 3> dead_time_remaining = {};
 };
 
 struct SimState {

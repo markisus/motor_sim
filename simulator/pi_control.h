@@ -12,9 +12,8 @@ struct PiParams {
 
 struct PiContext {
     Scalar err = 0;
-    Scalar last_update_time = -std::numeric_limits<Scalar>::infinity();
     Scalar integral = 0;
 };
 
-Scalar pi_control(const PiParams& params, PiContext* context, const Scalar time,
+Scalar pi_control(const PiParams& params, PiContext* context, const Scalar dt,
                   const Scalar actual, const Scalar target);
