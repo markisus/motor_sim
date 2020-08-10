@@ -6,6 +6,7 @@
 #include "scalar.h"
 #include "sim_params.h"
 #include "sine_series.h"
+#include "space_vector_modulation.h"
 #include "wrappers/sdl_context.h"
 #include "wrappers/sdl_imgui.h"
 #include "wrappers/sdl_imgui_context.h"
@@ -165,6 +166,15 @@ int main(int argc, char* argv[]) {
     VizData viz_data;
     init_viz_data(&viz_data);
 
+    // FOC stuff
+    PiParams current_controller_params =
+        make_motor_pi_params(/*bandwidth=*/1000,
+                             /*resistance=*/1,
+                             /*inductance=*/1);
+    PiContext current_q_pi_context;
+    PiContext current_d_pi_context;
+    const Scalar desired_torque = 1.0; // N.m
+
     wrappers::SdlContext sdl_context("Motor Simulator",
                                      /*width=*/1920 / 2,
                                      /*height=*/1080 / 2);
@@ -193,8 +203,67 @@ int main(int argc, char* argv[]) {
         run_gui(&params, &state, &viz_data);
         if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
-                state.gate_state.commanded = six_step_commutate(
-                    state.electrical_angle, state.six_step_phase_advance);
+
+                const Scalar pwm_progress = state.pwm_timer / state.pwm_dt;
+                const Scalar pwm_level = (pwm_progress < 0.5)
+                                             ? 2.0 * pwm_progress
+                                             : 2.0 * (1.0 - pwm_progress);
+                for (int j = 0; j < 3; ++j) {
+                    state.gate_state.commanded[j] =
+                        state.pwm_duties[j] >= pwm_level;
+                }
+
+                // update pwm_timer
+                state.pwm_timer += params.dt;
+                while (state.pwm_timer > state.pwm_dt) {
+                    state.pwm_timer -= state.pwm_dt;
+                }
+
+                if (true) {
+                    const Scalar normed_bEmf0_q =
+                        kClarkeScale * 1.5 * params.normalized_bEmf_coeffs(0);
+                    const Scalar desired_current_q =
+                        desired_torque / normed_bEmf0_q;
+
+                    const Scalar q_axis_angle =
+                        state.electrical_angle - kPI / 2;
+                    const Scalar cs = std::cos(-q_axis_angle);
+                    const Scalar sn = std::sin(-q_axis_angle);
+                    const std::complex<Scalar> park_transform{cs, sn};
+
+                    const std::complex<Scalar> current_qd =
+                        park_transform *
+                        to_complex<Scalar>(
+                            (kClarkeTransform2x3 * state.coil_currents)
+                                .head<2>());
+
+                    const Scalar voltage_q_coupled = pi_control(
+                        current_controller_params, &current_q_pi_context,
+                        state.time, current_qd.real(), desired_current_q);
+                    const Scalar voltage_d_coupled = pi_control(
+                        current_controller_params, &current_q_pi_context,
+                        state.time, current_qd.imag(), 0);
+
+                    const std::complex<Scalar> voltage_qd_coupled = {
+                        voltage_q_coupled, voltage_d_coupled};
+
+                    const std::complex<Scalar> decoupling_qd =
+                        park_transform *
+                        to_complex<Scalar>(
+                            (kClarkeTransform2x3 * state.normalized_bEmfs)
+                                .head<2>() *
+                            state.rotor_angular_vel);
+
+                    const std::complex<Scalar> voltage_qd =
+                        voltage_qd_coupled - decoupling_qd;
+
+                    const std::complex<Scalar> voltage_ab =
+                        voltage_qd * std::conj(park_transform);
+
+                    state.pwm_duties =
+                        get_pwm_duties(params.bus_voltage, voltage_ab);
+                }
+
                 step(params, &state);
             }
         }

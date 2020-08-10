@@ -16,5 +16,5 @@ struct PiContext {
     Scalar integral = 0;
 };
 
-Scalar pi_control(const PiParams& params, PiContext* context,
+Scalar pi_control(const PiParams& params, PiContext* context, const Scalar time,
                   const Scalar actual, const Scalar target);

@@ -5,13 +5,16 @@
 #include <array>
 
 struct SimParams {
+    static constexpr int kNumBEmfCoeffs = 5;
+
     bool paused = false;
-    Scalar dt = 1e-6;          // sec
+    Scalar dt = 1.0 / 100000; // sec, 100kHz
+
     int step_multiplier = 5e3; // sec
     Scalar gate_dead_time =
-        1e-3; // sec
-              // time during commutation when gate is neither high nor low, to
-              // prevent shoot through current
+        dt * 5; // sec
+                // time during commutation when gate is neither high nor low, to
+                // prevent shoot through current
 
     int num_pole_pairs;
     Scalar rotor_inertia; // moment of inertia
@@ -30,7 +33,7 @@ struct SimParams {
 
     // normalized bEmf aka torque/current curve
     // odd coefficients of sine fourier expansion
-    Eigen::Matrix<Scalar, 5, 1> normalized_bEmf_coeffs;
+    Eigen::Matrix<Scalar, kNumBEmfCoeffs, 1> normalized_bEmf_coeffs;
 
     std::array<Scalar, 3600> cogging_torque_map;
     std::array<Scalar, 3600> stiction_torque_map;

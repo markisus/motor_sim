@@ -120,6 +120,7 @@ cc_binary(
         ":scalar",
         ":sim_params",
         ":sine_series",
+        ":space_vector_modulation",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",

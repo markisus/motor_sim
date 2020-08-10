@@ -31,6 +31,13 @@ struct SimState {
     Scalar six_step_phase_advance = 0; // proportion of a cycle (0 to 1)
 
     GateState gate_state;
+    std::array<Scalar, 3> pwm_duties = {};
+
+    Scalar pwm_dt = 1.0 / 1000; // sec, 1kHz
+    Scalar pwm_timer = 0;
+
+    Scalar foc_dt = 1.0 / 100; // sec, 100Hz
+    Scalar foc_timer = foc_dt;
 
     Eigen::Matrix<Scalar, 3, 1> pole_voltages;
     Eigen::Matrix<Scalar, 3, 1> phase_voltages;
