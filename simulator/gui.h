@@ -57,7 +57,7 @@ struct VizData {
     std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_normalized_bEmfs;
     std::array<Scalar, kNumRollingPts> rolling_torque;
     std::array<Scalar, kNumRollingPts> rolling_rotor_angular_vel;
-    std::array<Scalar, kNumRollingPts> pwm_progress;
+    std::array<Scalar, kNumRollingPts> pwm_level;
     std::array<std::array<Scalar, kNumRollingPts>, 3> pwm_duties;
     std::array<Scalar, kNumRollingPts> current_q_err;
     std::array<Scalar, kNumRollingPts> current_q_integral;

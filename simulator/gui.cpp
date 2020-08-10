@@ -199,7 +199,7 @@ void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
 
         viz_data->pwm_duties[i][next_idx] = sim_state->pwm_state.duties[i];
 
-        viz_data->pwm_progress[next_idx] = sim_state->pwm_state.progress;
+        viz_data->pwm_level[next_idx] = sim_state->pwm_state.level;
 
         viz_data->current_q_err[next_idx] = sim_state->current_q_pi_context.err;
 
@@ -236,7 +236,7 @@ void draw_control_plots(int count, int offset, SimState* sim_state,
         }
 
         ImPlot::PlotLine("Level", viz_data->rolling_timestamps.data(),
-                         viz_data->pwm_progress.data(), count, offset,
+                         viz_data->pwm_level.data(), count, offset,
                          sizeof(Scalar));
 
         ImPlot::EndPlot();

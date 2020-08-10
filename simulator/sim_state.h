@@ -28,7 +28,7 @@ inline void step_pwm_state(const Scalar dt, PwmState* state) {
 inline std::array<bool, 3> get_pwm_gate_command(const PwmState& state) {
     std::array<bool, 3> commanded;
     for (int i = 0; i < 3; ++i) {
-        commanded[i] = state.duties[i] > state.progress;
+        commanded[i] = state.duties[i] > state.level;
     }
     return commanded;
 }
