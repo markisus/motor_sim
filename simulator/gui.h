@@ -46,7 +46,7 @@ struct VizData {
     bool show_phase_voltages = true;
 
     bool use_rotor_frame = true; // space vector viz
-    
+
     float rolling_history = 1; // sec
     int rolling_buffers_next_idx = 0;
     bool rolling_buffers_wrap_around = false;
@@ -57,6 +57,12 @@ struct VizData {
     std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_normalized_bEmfs;
     std::array<Scalar, kNumRollingPts> rolling_torque;
     std::array<Scalar, kNumRollingPts> rolling_rotor_angular_vel;
+    std::array<Scalar, kNumRollingPts> pwm_progress;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> pwm_duties;
+    std::array<Scalar, kNumRollingPts> current_q_err;
+    std::array<Scalar, kNumRollingPts> current_q_integral;
+    std::array<Scalar, kNumRollingPts> current_d_err;
+    std::array<Scalar, kNumRollingPts> current_d_integral;
 };
 
 void init_viz_data(VizData* viz_data);

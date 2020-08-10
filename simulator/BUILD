@@ -85,6 +85,7 @@ cc_library(
         "//util:math_constants",
         ":clarke_transform",
         ":conversions",
+        ":pi_control",
         ":scalar",
         ":sim_params",
         ":sim_state",

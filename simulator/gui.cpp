@@ -182,30 +182,65 @@ void draw_rotor_angular_vel_plot(const int count, const int offset,
 }
 
 void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
-    viz_data->rolling_timestamps[viz_data->rolling_buffers_next_idx] =
-        sim_state->time;
+    const int next_idx = viz_data->rolling_buffers_next_idx;
+
+    viz_data->rolling_timestamps[next_idx] = sim_state->time;
+
     for (int i = 0; i < 3; ++i) {
-        viz_data->rolling_phase_vs[i][viz_data->rolling_buffers_next_idx] =
-            sim_state->phase_voltages(i);
-        viz_data
-            ->rolling_phase_currents[i][viz_data->rolling_buffers_next_idx] =
+        viz_data->rolling_phase_vs[i][next_idx] = sim_state->phase_voltages(i);
+
+        viz_data->rolling_phase_currents[i][next_idx] =
             sim_state->coil_currents(i);
-        viz_data->rolling_bEmfs[i][viz_data->rolling_buffers_next_idx] =
-            sim_state->bEmfs(i);
-        viz_data
-            ->rolling_normalized_bEmfs[i][viz_data->rolling_buffers_next_idx] =
+
+        viz_data->rolling_bEmfs[i][next_idx] = sim_state->bEmfs(i);
+
+        viz_data->rolling_normalized_bEmfs[i][next_idx] =
             sim_state->normalized_bEmfs(i);
+
+        viz_data->pwm_duties[i][next_idx] = sim_state->pwm_state.duties[i];
+
+        viz_data->pwm_progress[next_idx] = sim_state->pwm_state.progress;
+
+        viz_data->current_q_err[next_idx] = sim_state->current_q_pi_context.err;
+
+        viz_data->current_q_integral[next_idx] =
+            sim_state->current_q_pi_context.integral;
+
+        viz_data->current_d_err[next_idx] = sim_state->current_d_pi_context.err;
+
+        viz_data->current_d_integral[next_idx] =
+            sim_state->current_d_pi_context.integral;
     }
 
-    viz_data->rolling_rotor_angular_vel[viz_data->rolling_buffers_next_idx] =
+    viz_data->rolling_rotor_angular_vel[next_idx] =
         sim_state->rotor_angular_vel;
-
-    viz_data->rolling_torque[viz_data->rolling_buffers_next_idx] =
-        sim_state->torque;
+    viz_data->rolling_torque[next_idx] = sim_state->torque;
 
     rolling_buffer_advance_idx(viz_data->rolling_timestamps.size(),
                                &viz_data->rolling_buffers_next_idx,
                                &viz_data->rolling_buffers_wrap_around);
+}
+
+void draw_control_plots(int count, int offset, SimState* sim_state,
+                        VizData* viz_data) {
+    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
+                               sim_state->time, ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsY(0, 1, ImGuiCond_Once);
+    if (ImPlot::BeginPlot("PWM", "Seconds", "",
+                          ImVec2(kPlotWidth, kPlotHeight))) {
+        for (int i = 0; i < 3; ++i) {
+            ImPlot::PlotLine(absl::StrFormat("Gate %d", i).c_str(),
+                             viz_data->rolling_timestamps.data(),
+                             viz_data->pwm_duties[i].data(), count, offset,
+                             sizeof(Scalar));
+        }
+
+        ImPlot::PlotLine("Level", viz_data->rolling_timestamps.data(),
+                         viz_data->pwm_progress.data(), count, offset,
+                         sizeof(Scalar));
+
+        ImPlot::EndPlot();
+    }
 }
 
 void implot_radial_line(const char* name, float inner_radius,
@@ -407,6 +442,12 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
 
     draw_torque_plot(rolling_buffer_count, rolling_buffer_offset, sim_params,
                      sim_state, viz_data);
+
+    ImGui::End();
+
+    ImGui::Begin("Controls");
+    draw_control_plots(rolling_buffer_count, rolling_buffer_offset, sim_state,
+                       viz_data);
 
     ImGui::End();
 

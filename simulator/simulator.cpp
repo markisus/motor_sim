@@ -39,10 +39,10 @@ void update_gate_state(const Scalar dead_time, const Scalar dt,
         }
 
         if (gate_state->actual[i] == OFF) {
-            dead_time_remaining[i] -= dt;
+            gate_state->dead_time_remaining[i] -= dt;
 
             // see if sufficient dead time has been acheived
-            if (dead_time_remaining[i] <= 0) {
+            if (gate_state->dead_time_remaining[i] <= 0) {
                 gate_state->actual[i] = command;
             }
         } else {
@@ -81,6 +81,8 @@ std::array<bool, 3> six_step_commutate(const Scalar electrical_angle,
 }
 
 void step(const SimParams& params, SimState* state) {
+    step_pwm_state(params.dt, &state->pwm_state);
+    state->gate_state.commanded = get_pwm_gate_command(state->pwm_state);
     update_gate_state(params.gate_dead_time, params.dt, &state->gate_state);
 
     // apply pole voltages
@@ -166,14 +168,8 @@ int main(int argc, char* argv[]) {
     init_viz_data(&viz_data);
 
     // FOC stuff
-    PiParams current_controller_params =
-        make_motor_pi_params(/*bandwidth=*/1000,
-                             /*resistance=*/1,
-                             /*inductance=*/1);
-    PiContext current_q_pi_context;
-    PiContext current_d_pi_context;
+    PiParams current_controller_params;
     const Scalar desired_torque = 1.0; // N.m
-    PwmState pwm_state;
 
     wrappers::SdlContext sdl_context("Motor Simulator",
                                      /*width=*/1920 / 2,
@@ -201,13 +197,16 @@ int main(int argc, char* argv[]) {
         wrappers::sdl_imgui_newframe(sdl_context.window_);
 
         run_gui(&params, &state, &viz_data);
+
+        current_controller_params =
+            make_motor_pi_params(/*bandwidth=*/100000,
+                                 /*resistance=*/params.phase_resistance,
+                                 /*inductance=*/params.phase_inductance);
+
         if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
 
-                state.gate_state.commanded = get_pwm_gate_command(pwm_state);
-                step_pwm_state(params.dt, &pwm_state);
-
-                if (true) {
+                if (i % 10 == 0) {
                     const Scalar normed_bEmf0_q =
                         kClarkeScale * 1.5 * params.normalized_bEmf_coeffs(0);
                     const Scalar desired_current_q =
@@ -226,10 +225,10 @@ int main(int argc, char* argv[]) {
                                 .head<2>());
 
                     const Scalar voltage_q_coupled = pi_control(
-                        current_controller_params, &current_q_pi_context,
+                        current_controller_params, &state.current_q_pi_context,
                         params.dt, current_qd.real(), desired_current_q);
                     const Scalar voltage_d_coupled = pi_control(
-                        current_controller_params, &current_q_pi_context,
+                        current_controller_params, &state.current_q_pi_context,
                         params.dt, current_qd.imag(), 0);
 
                     const std::complex<Scalar> voltage_qd_coupled = {
@@ -248,12 +247,12 @@ int main(int argc, char* argv[]) {
                     const std::complex<Scalar> voltage_ab =
                         voltage_qd * std::conj(park_transform);
 
-                    pwm_state.duties =
+                    state.pwm_state.duties =
                         get_pwm_duties(params.bus_voltage, voltage_ab);
                 }
 
                 step(params, &state);
-                state->time += params.dt;
+                state.time += params.dt;
             }
         }
 

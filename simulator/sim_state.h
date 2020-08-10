@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pi_control.h"
 #include "scalar.h"
 #include <Eigen/Dense>
 
@@ -27,7 +28,7 @@ inline void step_pwm_state(const Scalar dt, PwmState* state) {
 inline std::array<bool, 3> get_pwm_gate_command(const PwmState& state) {
     std::array<bool, 3> commanded;
     for (int i = 0; i < 3; ++i) {
-	commanded[i] = state.duties[i] > state.progress;
+        commanded[i] = state.duties[i] > state.progress;
     }
     return commanded;
 }
@@ -55,6 +56,9 @@ struct SimState {
     Scalar six_step_phase_advance = 0; // proportion of a cycle (0 to 1)
 
     GateState gate_state;
+    PwmState pwm_state;
+    PiContext current_q_pi_context;
+    PiContext current_d_pi_context;
 
     Scalar foc_dt = 1.0 / 100; // sec, 100Hz
     Scalar foc_timer = foc_dt;
