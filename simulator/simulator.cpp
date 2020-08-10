@@ -199,18 +199,26 @@ int main(int argc, char* argv[]) {
         run_gui(&params, &state, &viz_data);
 
         current_controller_params =
-            make_motor_pi_params(/*bandwidth=*/100000,
+            make_motor_pi_params(/*bandwidth=*/1,
                                  /*resistance=*/params.phase_resistance,
                                  /*inductance=*/params.phase_inductance);
 
         if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
 
-                if (i % 10 == 0) {
-                    const Scalar normed_bEmf0_q =
-                        kClarkeScale * 1.5 * params.normalized_bEmf_coeffs(0);
-                    const Scalar desired_current_q =
-                        desired_torque / normed_bEmf0_q;
+                state.foc_timer += params.dt;
+                bool trigger_foc = false;
+                if (state.foc_timer > state.foc_dt) {
+                    trigger_foc = true;
+                    state.foc_timer -= state.foc_dt;
+                }
+
+                if (trigger_foc) {
+                    // const Scalar normed_bEmf0_q =
+                    //     kClarkeScale * 1.5 *
+                    //     params.normalized_bEmf_coeffs(0);
+                    const Scalar desired_current_q = 1.0;
+                    // desired_torque / normed_bEmf0_q;
 
                     const Scalar q_axis_angle =
                         state.electrical_angle - kPI / 2;
@@ -226,10 +234,10 @@ int main(int argc, char* argv[]) {
 
                     const Scalar voltage_q_coupled = pi_control(
                         current_controller_params, &state.current_q_pi_context,
-                        params.dt, current_qd.real(), desired_current_q);
+                        state.foc_dt, current_qd.real(), desired_current_q);
                     const Scalar voltage_d_coupled = pi_control(
-                        current_controller_params, &state.current_q_pi_context,
-                        params.dt, current_qd.imag(), 0);
+                        current_controller_params, &state.current_d_pi_context,
+                        state.foc_dt, current_qd.imag(), 0);
 
                     const std::complex<Scalar> voltage_qd_coupled = {
                         voltage_q_coupled, voltage_d_coupled};

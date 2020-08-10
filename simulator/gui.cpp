@@ -241,6 +241,21 @@ void draw_control_plots(int count, int offset, SimState* sim_state,
 
         ImPlot::EndPlot();
     }
+
+    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
+                               sim_state->time, ImGuiCond_Always);
+
+    if (ImPlot::BeginPlot("Current Controller", "Seconds", nullptr,
+                          ImVec2(kPlotWidth, kPlotHeight))) {
+        ImPlot::PlotLine("iq error", viz_data->rolling_timestamps.data(),
+                         viz_data->current_q_err.data(), count, offset,
+                         sizeof(Scalar));
+
+        ImPlot::PlotLine("id error", viz_data->rolling_timestamps.data(),
+                         viz_data->current_d_err.data(), count, offset,
+                         sizeof(Scalar));
+        ImPlot::EndPlot();
+    }
 }
 
 void implot_radial_line(const char* name, float inner_radius,
