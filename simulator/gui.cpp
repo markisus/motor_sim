@@ -264,6 +264,11 @@ void draw_space_vector_plot(SimState* sim_state, VizData* viz_data) {
         implot_radial_line("Rotor Angle", 0.5f, 0.9f,
                            sim_state->electrical_angle);
 
+        const Eigen::Matrix<Scalar, 2, 1> phase_voltage_sv =
+            kClarkeTransform2x3 * sim_state->phase_voltages;
+        implot_central_line("Phase Voltage Space Vector", phase_voltage_sv(0),
+                            phase_voltage_sv(1));
+
         const Eigen::Matrix<Scalar, 2, 1> current_sv =
             kClarkeTransform2x3 * sim_state->coil_currents;
         implot_central_line("Current Space Vector", current_sv(0),
