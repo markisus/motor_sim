@@ -174,6 +174,7 @@ int main(int argc, char* argv[]) {
     PiContext current_q_pi_context;
     PiContext current_d_pi_context;
     const Scalar desired_torque = 1.0; // N.m
+    PwmState pwm_state;
 
     wrappers::SdlContext sdl_context("Motor Simulator",
                                      /*width=*/1920 / 2,
@@ -204,20 +205,8 @@ int main(int argc, char* argv[]) {
         if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
 
-                const Scalar pwm_progress = state.pwm_timer / state.pwm_dt;
-                const Scalar pwm_level = (pwm_progress < 0.5)
-                                             ? 2.0 * pwm_progress
-                                             : 2.0 * (1.0 - pwm_progress);
-                for (int j = 0; j < 3; ++j) {
-                    state.gate_state.commanded[j] =
-                        state.pwm_duties[j] >= pwm_level;
-                }
-
-                // update pwm_timer
-                state.pwm_timer += params.dt;
-                while (state.pwm_timer > state.pwm_dt) {
-                    state.pwm_timer -= state.pwm_dt;
-                }
+                state.gate_state.commanded = get_pwm_gate_command(pwm_state);
+                step_pwm_state(params.dt, &pwm_state);
 
                 if (true) {
                     const Scalar normed_bEmf0_q =
@@ -260,7 +249,7 @@ int main(int argc, char* argv[]) {
                     const std::complex<Scalar> voltage_ab =
                         voltage_qd * std::conj(park_transform);
 
-                    state.pwm_duties =
+                    pwm_state.duties =
                         get_pwm_duties(params.bus_voltage, voltage_ab);
                 }
 

@@ -8,6 +8,30 @@ constexpr int LOW = 0;
 constexpr int HIGH = 1;
 constexpr int OFF = 2;
 
+struct PwmState {
+    std::array<Scalar, 3> duties = {};
+    Scalar period = 1.0 / 1000; // sec, 1kHz
+    Scalar progress = 0;        // 0 to 1
+    Scalar level = 0;           // 0 to 1 to 0 (triangular)
+};
+
+inline void step_pwm_state(const Scalar dt, PwmState* state) {
+    state->progress += dt / state->period;
+    while (state->progress > 1.0) {
+        state->progress -= 1.0;
+    }
+    state->level = (state->progress < 0.5) ? 2.0 * state->progress
+                                           : 2.0 * (1.0 - state->progress);
+}
+
+inline std::array<bool, 3> get_pwm_gate_command(const PwmState& state) {
+    std::array<bool, 3> commanded;
+    for (int i = 0; i < 3; ++i) {
+	commanded[i] = state.duties[i] > state.progress;
+    }
+    return commanded;
+}
+
 struct GateState {
     std::array<bool, 3> commanded = {};
     std::array<int, 3> actual = {OFF, OFF, OFF};
@@ -31,10 +55,6 @@ struct SimState {
     Scalar six_step_phase_advance = 0; // proportion of a cycle (0 to 1)
 
     GateState gate_state;
-    std::array<Scalar, 3> pwm_duties = {};
-
-    Scalar pwm_dt = 1.0 / 1000; // sec, 1kHz
-    Scalar pwm_timer = 0;
 
     Scalar foc_dt = 1.0 / 100; // sec, 100Hz
     Scalar foc_timer = foc_dt;
