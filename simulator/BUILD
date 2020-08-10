@@ -39,7 +39,7 @@ cc_library(
         "space_vector_modulation.h"],
     deps = [
         "//global_debug:global_debug",
-        "//third_party/eigen:eigen"
+        "//third_party/eigen:eigen",
         ":clarke_transform",
         ":conversions",
         ":pi",
@@ -116,6 +116,7 @@ cc_binary(
         ":clarke_transform",
         ":conversions",
         ":gui",
+        ":pi_control",
         ":scalar",
         ":sim_params",
         ":sine_series",
