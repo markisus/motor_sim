@@ -40,9 +40,9 @@ cc_library(
     deps = [
         "//global_debug:global_debug",
         "//third_party/eigen:eigen",
+        "//util:math_constants",
         ":clarke_transform",
         ":conversions",
-        ":pi",
         ":scalar",
     ]
 )
@@ -52,7 +52,7 @@ cc_binary(
     srcs = ["space_vector_modulation_test.cpp"],
     deps = [
         "//global_debug:global_debug",
-        ":pi",
+        "//util:math_constants",
         ":scalar",
         ":space_vector_modulation",
         "@com_github_google_googletest//:gtest_main",
@@ -80,14 +80,14 @@ cc_library(
     srcs = ["gui.cpp"],
     hdrs = ["gui.h"],
     deps = [
+        "//third_party/imgui:imgui_base",
+        "//third_party/implot:implot",
+        "//util:math_constants",
         ":clarke_transform",
         ":conversions",
-        ":pi",
         ":scalar",
         ":sim_params",
         ":sim_state",
-        "//third_party/imgui:imgui_base",
-        "//third_party/implot:implot",
         "@com_google_absl//absl/strings:str_format",
     ])
 
@@ -105,9 +105,9 @@ cc_library(
     name = "sim_params",
     hdrs = ["sim_params.h"],
     deps = [
-        ":pi",
-        ":scalar",
         "//third_party/eigen:eigen",
+        "//util:math_constants",
+        ":scalar",
     ]
 )
 cc_binary(

@@ -1,8 +1,8 @@
 #include "clarke_transform.h"
 #include "global_debug.h"
-#include "pi.h"
 #include "scalar.h"
 #include "space_vector_modulation.h"
+#include "util/math_constants.h"
 #include <complex>
 #include <gtest/gtest.h>
 #include <iostream>

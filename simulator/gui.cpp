@@ -1,9 +1,9 @@
 #include "gui.h"
 #include "clarke_transform.h"
 #include "conversions.h"
-#include "pi.h"
 #include "scalar.h"
 #include "sim_params.h"
+#include "util/math_constants.h"
 #include <absl/strings/str_format.h>
 #include <imgui.h>
 #include <implot.h>

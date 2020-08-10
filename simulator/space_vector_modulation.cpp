@@ -2,7 +2,7 @@
 #include "clarke_transform.h"
 #include "conversions.h"
 #include "global_debug.h"
-#include "pi.h"
+#include "util/math_constants.h"
 #include <Eigen/Dense>
 
 const std::array<std::complex<Scalar>, 6> kSvmVectors = []() {
