@@ -1,5 +1,7 @@
 #include "clarke_transform.h"
+#include "conversions.h"
 #include "global_debug.h"
+#include "pwm_state.h"
 #include "scalar.h"
 #include "space_vector_modulation.h"
 #include "util/math_constants.h"
@@ -108,4 +110,36 @@ TEST(pwm_to_avg_voltage_round_trip, 0) {
         get_avg_voltage_ab(bus_voltage, duties);
 
     EXPECT_LT(std::norm(voltage_ab - voltage_ab_out), 1e-6);
+}
+
+TEST(dt_simulation, 0) {
+
+    const Scalar bus_voltage = 10.0;
+
+    const std::complex<Scalar> target{1.23, 4.56};
+
+    std::complex<Scalar> avg;
+    Scalar time_elapsed = 0;
+
+    PwmState pwm;
+    const Scalar dt = pwm.period / 10000;
+    pwm.duties = get_pwm_duties(bus_voltage, target);
+
+    while (!step_pwm_state(dt, &pwm)) {
+        const auto gates = get_pwm_gate_command(pwm);
+
+        Eigen::Matrix<Scalar, 3, 1> pole_voltages;
+        pole_voltages << gates[0], gates[1], gates[2];
+        pole_voltages *= bus_voltage;
+
+        auto voltage_sv =
+            to_complex<Scalar>(kClarkeTransform2x3 * pole_voltages);
+        avg += voltage_sv * dt;
+
+	time_elapsed += dt;
+    }
+
+    avg /= time_elapsed;
+
+    EXPECT_LT(std::norm(avg - target), 1e-3);
 }

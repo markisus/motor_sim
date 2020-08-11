@@ -75,6 +75,8 @@ cc_binary(
     deps = [
         "//global_debug:global_debug",
         "//util:math_constants",
+        ":pwm_state",
+        ":conversions",
         ":scalar",
         ":space_vector_modulation",
         "@com_github_google_googletest//:gtest_main",
