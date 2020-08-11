@@ -7,6 +7,28 @@ LINKOPTS = select({
     "//conditions:default": ["-lstdc++fs"],})
 
 cc_library(
+    name = "gate_state",
+    hdrs = ["gate_state.h"],
+    deps = [":scalar"])
+
+cc_library(
+    name = "pwm_state",
+    hdrs = ["pwm_state.h"],
+    deps = [
+        ":scalar",
+        "//util:time",
+    ])
+
+cc_library(
+    name = "motor_state",
+    hdrs = ["motor_state.h"],
+    deps = [
+        ":scalar",
+        "//third_party/eigen:eigen",
+    ]
+)
+
+cc_library(
     name = "conversions",
     hdrs = ["conversions.h"])
 
@@ -72,7 +94,9 @@ cc_library(
 cc_library(
     name = "sim_state",
     hdrs = ["sim_state.h"],
-    deps = ["//third_party/eigen:eigen"]
+    deps = [
+        ":gate_state",
+        "//third_party/eigen:eigen"]
 )
 
 cc_library(
@@ -85,7 +109,9 @@ cc_library(
         "//util:math_constants",
         ":clarke_transform",
         ":conversions",
+        ":motor_state",
         ":pi_control",
+        ":pwm_state",
         ":scalar",
         ":sim_params",
         ":sim_state",

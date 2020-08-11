@@ -34,29 +34,18 @@ inline int get_rolling_buffer_offset(const size_t rolling_buffer_capacity,
 
 constexpr int kNumRollingPts = 200;
 
-struct VizData {
-    std::array<Scalar, 50> circle_xs;
-    std::array<Scalar, 50> circle_ys;
+struct RollingBuffers {
+    int next_idx = 0;
+    bool wrap_around = false;
 
-    std::array<uint32_t, 3> coil_colors;
-    std::array<bool, 3> coil_visible = {true, false, false};
-    bool show_bEmfs = false;
-    bool show_normalized_bEmfs = true;
-    bool show_phase_currents = true;
-    bool show_phase_voltages = true;
+    std::array<Scalar, kNumRollingPts> timestamps;
 
-    bool use_rotor_frame = true; // space vector viz
-
-    float rolling_history = 1; // sec
-    int rolling_buffers_next_idx = 0;
-    bool rolling_buffers_wrap_around = false;
-    std::array<Scalar, kNumRollingPts> rolling_timestamps;
-    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_phase_vs;
-    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_phase_currents;
-    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_bEmfs;
-    std::array<std::array<Scalar, kNumRollingPts>, 3> rolling_normalized_bEmfs;
-    std::array<Scalar, kNumRollingPts> rolling_torque;
-    std::array<Scalar, kNumRollingPts> rolling_rotor_angular_vel;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> phase_vs;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> phase_currents;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> bEmfs;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> normalized_bEmfs;
+    std::array<Scalar, kNumRollingPts> torque;
+    std::array<Scalar, kNumRollingPts> rotor_angular_vel;
     std::array<Scalar, kNumRollingPts> pwm_level;
     std::array<std::array<Scalar, kNumRollingPts>, 3> pwm_duties;
     std::array<Scalar, kNumRollingPts> current_q_err;
@@ -65,6 +54,25 @@ struct VizData {
     std::array<Scalar, kNumRollingPts> current_d_integral;
 };
 
+struct VizOptions {
+    bool show_bEmfs = false;
+    bool show_normalized_bEmfs = true;
+    bool show_phase_currents = true;
+    bool show_phase_voltages = true;
+    bool use_rotor_frame = true; // space vector viz
+    float rolling_history = 1;   // sec
+    std::array<bool, 3> coil_visible = {true, false, false};
+};
+
+struct VizData {
+    std::array<Scalar, 50> circle_xs;
+    std::array<Scalar, 50> circle_ys;
+    std::array<uint32_t, 3> coil_colors;
+
+    RollingBuffers rolling_buffers;
+};
+
 void init_viz_data(VizData* viz_data);
 
-void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data);
+void run_gui(VizData* viz_data, SimParams* sim_params, SimState* sim_state,
+             VizOptions* viz_options);

@@ -11,6 +11,39 @@
 constexpr int kPlotHeight = 250; // sec
 constexpr int kPlotWidth = -1;   // sec
 
+struct RollingPlotParams {
+    int count;
+    int offset;
+    Scalar begin_time;
+    Scalar end_time;
+};
+
+RollingPlotParams get_rolling_plot_params(const RollingBuffers& buffers,
+                                          const Scalar rolling_history) {
+
+    RollingPlotParams params;
+
+    params.count = get_rolling_buffer_count(
+        buffers.timestamps.size(), buffers.next_idx, buffers.wrap_around);
+    params.offset = get_rolling_buffer_offset(
+        buffers.timestamps.size(), buffers.next_idx, buffers.wrap_around);
+    if (params.count != 0) {
+        params.begin_time = buffers.timestamps[params.offset];
+        params.end_time =
+            buffers.timestamps[(params.offset + params.count - 1) %
+                               buffers.timestamps.size()];
+    } else {
+        // no data to display
+        params.begin_time = 0;
+        params.end_time = 0;
+    }
+
+    params.begin_time =
+        std::max(params.begin_time, params.end_time - rolling_history);
+
+    return params;
+}
+
 void init_viz_data(VizData* viz_data) {
     const int num_pts = viz_data->circle_xs.size();
     for (int i = 0; i < num_pts; ++i) {
@@ -34,96 +67,91 @@ uint32_t get_coil_color(int coil, float alpha) {
     }
 }
 
-void draw_electrical_plot(const int count, const int offset,
-                          SimParams* sim_params, SimState* sim_state,
-                          VizData* viz_data) {
+void draw_electrical_plot(const RollingPlotParams& params,
+                          const RollingBuffers& buffers, VizOptions* options) {
 
     ImGui::Text("Left Axis (Volts):");
-    ImGui::Checkbox("Phase Voltages", &viz_data->show_phase_voltages);
+    ImGui::Checkbox("Phase Voltages", &options->show_phase_voltages);
     ImGui::SameLine();
     ImGui::Checkbox("Normed bEmfs (Volt . seconds)",
-                    &viz_data->show_normalized_bEmfs);
+                    &options->show_normalized_bEmfs);
     ImGui::SameLine();
-    ImGui::Checkbox("bEmfs", &viz_data->show_bEmfs);
+    ImGui::Checkbox("bEmfs", &options->show_bEmfs);
     ImGui::Text("Right Axis (Amperes):");
     ImGui::SameLine();
-    ImGui::Checkbox("Phase Currents", &viz_data->show_phase_currents);
+    ImGui::Checkbox("Phase Currents", &options->show_phase_currents);
 
     ImGui::Text("Coil Visibility:");
     ImGui::SameLine();
-    if (viz_data->show_bEmfs || viz_data->show_phase_currents ||
-        viz_data->show_phase_voltages) {
-        ImGui::Checkbox("Coil 0", &viz_data->coil_visible[0]);
+    if (options->show_bEmfs || options->show_phase_currents ||
+        options->show_phase_voltages) {
+        ImGui::Checkbox("Coil 0", &options->coil_visible[0]);
         ImGui::SameLine();
-        ImGui::Checkbox("Coil 1", &viz_data->coil_visible[1]);
+        ImGui::Checkbox("Coil 1", &options->coil_visible[1]);
         ImGui::SameLine();
-        ImGui::Checkbox("Coil 2", &viz_data->coil_visible[2]);
+        ImGui::Checkbox("Coil 2", &options->coil_visible[2]);
     }
 
-    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
-                               sim_state->time, ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
 
     const bool have_voltage_axis =
-        viz_data->show_bEmfs || viz_data->show_phase_voltages;
-    const bool have_current_axis = viz_data->show_phase_currents;
+        options->show_bEmfs || options->show_phase_voltages;
+    const bool have_current_axis = options->show_phase_currents;
 
-    ImPlot::SetNextPlotLimitsY(-sim_params->bus_voltage,
-                               sim_params->bus_voltage, ImGuiCond_Once, 0);
+    ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once, 0);
 
-    ImPlot::SetNextPlotLimitsY(
-        -0.5 * sim_params->bus_voltage / sim_params->phase_resistance,
-        0.5 * sim_params->bus_voltage / sim_params->phase_resistance,
-        ImGuiCond_Once, 1);
+    ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once, 1);
 
     if (ImPlot::BeginPlot("##Electrical Plots", "Seconds", nullptr,
                           ImVec2(kPlotWidth, kPlotHeight),
                           ImPlotFlags_Default | ImPlotFlags_YAxis2)) {
         for (int i = 0; i < 3; ++i) {
-            if (!viz_data->coil_visible[i]) {
+            if (!options->coil_visible[i]) {
                 continue;
             }
 
-            if (viz_data->show_phase_voltages) {
+            if (options->show_phase_voltages) {
                 ImPlot::SetPlotYAxis(0);
                 ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 1.0f));
                 ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 1.0f);
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Voltage", i).c_str(),
-                                 viz_data->rolling_timestamps.data(),
-                                 viz_data->rolling_phase_vs[i].data(), count,
-                                 offset, sizeof(Scalar));
+                                 buffers.timestamps.data(),
+                                 buffers.phase_vs[i].data(), params.count,
+                                 params.offset, sizeof(Scalar));
                 ImPlot::PopStyleVar();
                 ImPlot::PopStyleColor();
             }
 
-            if (viz_data->show_normalized_bEmfs) {
+            if (options->show_normalized_bEmfs) {
                 ImPlot::SetPlotYAxis(0);
                 ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.8f));
                 ImPlot::PlotLine(
                     absl::StrFormat("Coil %d Normed bEmf", i).c_str(),
-                    viz_data->rolling_timestamps.data(),
-                    viz_data->rolling_normalized_bEmfs[i].data(), count, offset,
-                    sizeof(Scalar));
+                    buffers.timestamps.data(),
+                    buffers.normalized_bEmfs[i].data(), params.count,
+                    params.offset, sizeof(Scalar));
                 ImPlot::PopStyleColor();
             }
 
-            if (viz_data->show_bEmfs) {
+            if (options->show_bEmfs) {
                 ImPlot::SetPlotYAxis(0);
                 ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.5f));
                 ImPlot::PlotLine(absl::StrFormat("Coil %d bEmf", i).c_str(),
-                                 viz_data->rolling_timestamps.data(),
-                                 viz_data->rolling_bEmfs[i].data(), count,
-                                 offset, sizeof(Scalar));
+                                 buffers.timestamps.data(),
+                                 buffers.bEmfs[i].data(), params.count,
+                                 params.offset, sizeof(Scalar));
                 ImPlot::PopStyleColor();
             }
 
-            if (viz_data->show_phase_currents) {
+            if (options->show_phase_currents) {
                 ImPlot::SetPlotYAxis(1);
                 ImPlot::PushStyleColor(ImPlotCol_Line, get_coil_color(i, 0.3f));
                 ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 4.0f);
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Current", i).c_str(),
-                                 viz_data->rolling_timestamps.data(),
-                                 viz_data->rolling_phase_currents[i].data(),
-                                 count, offset, sizeof(Scalar));
+                                 buffers.timestamps.data(),
+                                 buffers.phase_currents[i].data(), params.count,
+                                 params.offset, sizeof(Scalar));
                 ImPlot::PopStyleVar();
                 ImPlot::PopStyleColor();
             }
@@ -132,143 +160,118 @@ void draw_electrical_plot(const int count, const int offset,
     }
 }
 
-void draw_phase_currents_plot(const int count, const int offset,
-                              SimParams* sim_params, SimState* sim_state,
-                              VizData* viz_data) {
-    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
-                               sim_state->time, ImGuiCond_Always);
-    ImPlot::SetNextPlotLimitsY(
-        -sim_params->bus_voltage / sim_params->phase_resistance,
-        sim_params->bus_voltage / sim_params->phase_resistance, ImGuiCond_Once);
-    if (ImPlot::BeginPlot("Phase Currents", "Seconds", "Amperes",
-                          ImVec2(kPlotWidth, kPlotHeight))) {
-        for (int i = 0; i < 3; ++i) {
-            ImPlot::PlotLine(absl::StrFormat("Coil %d", i).c_str(),
-                             viz_data->rolling_timestamps.data(),
-                             viz_data->rolling_phase_currents[i].data(), count,
-                             offset, sizeof(Scalar));
-        }
-        ImPlot::EndPlot();
-    }
-}
-
-void draw_torque_plot(const int count, const int offset, SimParams* sim_params,
-                      SimState* sim_state, VizData* viz_data) {
-    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
-                               sim_state->time, ImGuiCond_Always);
+void draw_torque_plot(const RollingPlotParams& params,
+                      const RollingBuffers& buffers) {
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
     if (ImPlot::BeginPlot("Torque", "Seconds", "N . m",
                           ImVec2(kPlotWidth, kPlotHeight))) {
-        ImPlot::PlotLine("", viz_data->rolling_timestamps.data(),
-                         viz_data->rolling_torque.data(), count, offset,
-                         sizeof(Scalar));
+        ImPlot::PlotLine("", buffers.timestamps.data(), buffers.torque.data(),
+                         params.count, params.offset, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 }
 
-void draw_rotor_angular_vel_plot(const int count, const int offset,
-                                 SimParams* sim_params, SimState* sim_state,
-                                 VizData* viz_data) {
-    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
-                               sim_state->time, ImGuiCond_Always);
+void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
+                                 const RollingBuffers& buffers) {
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
     ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
     if (ImPlot::BeginPlot("Rotor Angular Vel", "Seconds", "Radians / Sec",
                           ImVec2(kPlotWidth, kPlotHeight))) {
-        ImPlot::PlotLine("", viz_data->rolling_timestamps.data(),
-                         viz_data->rolling_rotor_angular_vel.data(), count,
-                         offset, sizeof(Scalar));
+        ImPlot::PlotLine("", buffers.timestamps.data(),
+                         buffers.rotor_angular_vel.data(), params.count,
+                         params.offset, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 }
 
-void update_rolling_buffers(SimState* sim_state, VizData* viz_data) {
-    const int next_idx = viz_data->rolling_buffers_next_idx;
+void update_rolling_buffers(const Scalar time, const MotorState& motor,
+                            const PwmState& pwm, const FocState& foc,
+                            RollingBuffers* buffers) {
+    const int next_idx = buffers->next_idx;
 
-    viz_data->rolling_timestamps[next_idx] = sim_state->time;
+    buffers->timestamps[next_idx] = time;
 
     for (int i = 0; i < 3; ++i) {
-        viz_data->rolling_phase_vs[i][next_idx] = sim_state->phase_voltages(i);
+        buffers->phase_vs[i][next_idx] = motor.phase_voltages(i);
 
-        viz_data->rolling_phase_currents[i][next_idx] =
-            sim_state->coil_currents(i);
+        buffers->phase_currents[i][next_idx] = motor.phase_currents(i);
 
-        viz_data->rolling_bEmfs[i][next_idx] = sim_state->bEmfs(i);
+        buffers->bEmfs[i][next_idx] = motor.bEmfs(i);
 
-        viz_data->rolling_normalized_bEmfs[i][next_idx] =
-            sim_state->normalized_bEmfs(i);
+        buffers->normalized_bEmfs[i][next_idx] = motor.normalized_bEmfs(i);
 
-        viz_data->pwm_duties[i][next_idx] = sim_state->pwm_state.duties[i];
+        buffers->pwm_duties[i][next_idx] = pwm.duties[i];
 
-        viz_data->pwm_level[next_idx] = sim_state->pwm_state.level;
+        buffers->pwm_level[next_idx] = pwm.level;
 
-        viz_data->current_q_err[next_idx] = sim_state->current_q_pi_context.err;
+        buffers->current_q_err[next_idx] = foc.iq_controller.err;
 
-        viz_data->current_q_integral[next_idx] =
-            sim_state->current_q_pi_context.integral;
+        buffers->current_q_integral[next_idx] = foc.iq_controller.integral;
 
-        viz_data->current_d_err[next_idx] = sim_state->current_d_pi_context.err;
+        buffers->current_d_err[next_idx] = foc.id_controller.err;
 
-        viz_data->current_d_integral[next_idx] =
-            sim_state->current_d_pi_context.integral;
+        buffers->current_d_integral[next_idx] = foc.id_controller.integral;
     }
 
-    viz_data->rolling_rotor_angular_vel[next_idx] =
-        sim_state->rotor_angular_vel;
-    viz_data->rolling_torque[next_idx] = sim_state->torque;
+    buffers->rotor_angular_vel[next_idx] = motor.rotor_angular_vel;
+    buffers->torque[next_idx] = motor.torque;
 
-    rolling_buffer_advance_idx(viz_data->rolling_timestamps.size(),
-                               &viz_data->rolling_buffers_next_idx,
-                               &viz_data->rolling_buffers_wrap_around);
+    rolling_buffer_advance_idx(buffers->timestamps.size(), &buffers->next_idx,
+                               &buffers->wrap_around);
 }
 
-void draw_control_plots(int count, int offset, SimState* sim_state,
-                        VizData* viz_data) {
-    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
-                               sim_state->time, ImGuiCond_Always);
-    ImPlot::SetNextPlotLimitsY(0, 1, ImGuiCond_Once);
+void draw_control_plots(const RollingPlotParams& params,
+                        const RollingBuffers& buffers) {
+
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsY(-0.1, 1.1, ImGuiCond_Once);
     if (ImPlot::BeginPlot("PWM", "Seconds", "",
                           ImVec2(kPlotWidth, kPlotHeight))) {
         for (int i = 0; i < 3; ++i) {
             ImPlot::PlotLine(absl::StrFormat("Gate %d", i).c_str(),
-                             viz_data->rolling_timestamps.data(),
-                             viz_data->pwm_duties[i].data(), count, offset,
-                             sizeof(Scalar));
+                             buffers.timestamps.data(),
+                             buffers.pwm_duties[i].data(), params.count,
+                             params.offset, sizeof(Scalar));
         }
 
-        ImPlot::PlotLine("Level", viz_data->rolling_timestamps.data(),
-                         viz_data->pwm_level.data(), count, offset,
+        ImPlot::PlotLine("Level", buffers.timestamps.data(),
+                         buffers.pwm_level.data(), params.count, params.offset,
                          sizeof(Scalar));
 
         ImPlot::EndPlot();
     }
 
-    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
-                               sim_state->time, ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
 
     if (ImPlot::BeginPlot("Current Controller Errors", "Seconds", nullptr,
                           ImVec2(kPlotWidth, kPlotHeight))) {
-        ImPlot::PlotLine("iq error", viz_data->rolling_timestamps.data(),
-                         viz_data->current_q_err.data(), count, offset,
-                         sizeof(Scalar));
+        ImPlot::PlotLine("iq error", buffers.timestamps.data(),
+                         buffers.current_q_err.data(), params.count,
+                         params.offset, sizeof(Scalar));
 
-        ImPlot::PlotLine("id error", viz_data->rolling_timestamps.data(),
-                         viz_data->current_d_err.data(), count, offset,
-                         sizeof(Scalar));
+        ImPlot::PlotLine("id error", buffers.timestamps.data(),
+                         buffers.current_d_err.data(), params.count,
+                         params.offset, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 
-    ImPlot::SetNextPlotLimitsX(sim_state->time - viz_data->rolling_history,
-                               sim_state->time, ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
 
     if (ImPlot::BeginPlot("Current Controller Integrals", "Seconds", nullptr,
                           ImVec2(kPlotWidth, kPlotHeight))) {
-        ImPlot::PlotLine("iq int", viz_data->rolling_timestamps.data(),
-                         viz_data->current_q_integral.data(), count, offset,
-                         sizeof(Scalar));
+        ImPlot::PlotLine("iq int", buffers.timestamps.data(),
+                         buffers.current_q_integral.data(), params.count,
+                         params.offset, sizeof(Scalar));
 
-        ImPlot::PlotLine("id int", viz_data->rolling_timestamps.data(),
-                         viz_data->current_d_integral.data(), count, offset,
-                         sizeof(Scalar));
+        ImPlot::PlotLine("id int", buffers.timestamps.data(),
+                         buffers.current_d_integral.data(), params.count,
+                         params.offset, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 }
@@ -290,7 +293,7 @@ void implot_central_line(const char* name, float x, float y) {
     ImPlot::PlotLine(name, xs.data(), ys.data(), 2);
 }
 
-void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
+void draw_rotor_plot(const VizData& viz_data, const Scalar rotor_angle) {
     ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
                               /*x_max=*/1.5,
                               /*y_min=*/-1.5,
@@ -302,17 +305,17 @@ void draw_rotor_plot(SimState* sim_state, VizData* viz_data) {
                               ~ImPlotAxisFlags_TickLabels)) {
 
         ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, /*weight=*/1.0f);
-        ImPlot::PlotLine("Rotor Circle", viz_data->circle_xs.data(),
-                         viz_data->circle_ys.data(),
-                         viz_data->circle_xs.size());
-        implot_radial_line("Rotor Angle", 0.5f, 0.9f, sim_state->rotor_angle);
+        ImPlot::PlotLine("Rotor Circle", viz_data.circle_xs.data(),
+                         viz_data.circle_ys.data(), viz_data.circle_xs.size());
+        implot_radial_line("Rotor Angle", 0.5f, 0.9f, rotor_angle);
         ImPlot::PopStyleVar(1);
         ImPlot::EndPlot();
     }
 }
 
-void draw_space_vector_plot(SimState* sim_state, VizData* viz_data) {
-    ImGui::Checkbox("Use Rotor Frame", &viz_data->use_rotor_frame);
+void draw_space_vector_plot(const VizData& viz_data, const MotorState& motor,
+                            VizOptions* options) {
+    ImGui::Checkbox("Use Rotor Frame", &options->use_rotor_frame);
 
     ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
                               /*x_max=*/1.5,
@@ -325,21 +328,21 @@ void draw_space_vector_plot(SimState* sim_state, VizData* viz_data) {
                               ~ImPlotAxisFlags_TickLabels)) {
 
         ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, /*weight=*/1.0f);
-        ImPlot::PlotLine("##Electrical Circle", viz_data->circle_xs.data(),
-                         viz_data->circle_ys.data(),
-                         viz_data->circle_xs.size());
+        ImPlot::PlotLine("##Electrical Circle", viz_data.circle_xs.data(),
+                         viz_data.circle_ys.data(), viz_data.circle_xs.size());
 
-        implot_radial_line(
-            "Rotor Angle", 0.5f, 0.9f,
-            viz_data->use_rotor_frame ? 0 : sim_state->electrical_angle);
+        implot_radial_line("Rotor Angle", 0.5f, 0.9f,
+                           options->use_rotor_frame ? 0
+                                                    : motor.electrical_angle);
 
         const std::complex<Scalar> park_transform{
-            std::cos(-sim_state->electrical_angle),
-            std::sin(-sim_state->electrical_angle)};
+            std::cos(-motor.electrical_angle),
+            std::sin(-motor.electrical_angle)};
 
         std::complex<Scalar> phase_voltage_sv =
-            to_complex<Scalar>(kClarkeTransform2x3 * sim_state->phase_voltages);
-        if (viz_data->use_rotor_frame) {
+            to_complex<Scalar>(kClarkeTransform2x3 * motor.phase_voltages);
+
+        if (options->use_rotor_frame) {
             phase_voltage_sv *= park_transform;
         }
 
@@ -347,17 +350,17 @@ void draw_space_vector_plot(SimState* sim_state, VizData* viz_data) {
                             phase_voltage_sv.real(), phase_voltage_sv.imag());
 
         std::complex<Scalar> current_sv =
-            to_complex<Scalar>(kClarkeTransform2x3 * sim_state->coil_currents);
-        if (viz_data->use_rotor_frame) {
+            to_complex<Scalar>(kClarkeTransform2x3 * motor.phase_currents);
+        if (options->use_rotor_frame) {
             current_sv *= park_transform;
         }
 
         implot_central_line("Current Space Vector", current_sv.real(),
                             current_sv.imag());
 
-        std::complex<Scalar> normed_bEmf_sv = to_complex<Scalar>(
-            kClarkeTransform2x3 * sim_state->normalized_bEmfs);
-        if (viz_data->use_rotor_frame) {
+        std::complex<Scalar> normed_bEmf_sv =
+            to_complex<Scalar>(kClarkeTransform2x3 * motor.normalized_bEmfs);
+        if (options->use_rotor_frame) {
             normed_bEmf_sv *= park_transform;
         }
 
@@ -410,9 +413,12 @@ bool Slider(const char* label, Scalar* scalar, Scalar low, Scalar high) {
     return interacted;
 }
 
-void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
+void run_gui(VizData* viz_data, SimParams* sim_params, SimState* sim_state,
+             VizOptions* options) {
     if (!sim_params->paused) {
-        update_rolling_buffers(sim_state, viz_data);
+        update_rolling_buffers(sim_state->time, sim_state->motor,
+                               sim_state->pwm, sim_state->foc,
+                               &viz_data->rolling_buffers);
     }
 
     ImGui::Begin("Simulation Control");
@@ -426,7 +432,7 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
 
     ImGui::SliderInt("Step Multiplier", &sim_params->step_multiplier, 1, 5000);
 
-    ImGui::SliderFloat("Rolling History (sec)", &viz_data->rolling_history,
+    ImGui::SliderFloat("Rolling History (sec)", &options->rolling_history,
                        0.001f, 1.0f);
 
     ImGui::SliderInt("Num Pole Pairs", &sim_params->num_pole_pairs, 1, 8);
@@ -445,39 +451,32 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
     ImGui::End();
 
     ImGui::Begin("Rotor Viz");
-    draw_rotor_plot(sim_state, viz_data);
+    draw_rotor_plot(*viz_data, sim_state->motor.rotor_angle);
     ImGui::End();
 
     ImGui::Begin("Space Vector Viz");
-    draw_space_vector_plot(sim_state, viz_data);
+    draw_space_vector_plot(*viz_data, sim_state->motor, options);
     ImGui::End();
 
     ImGui::Begin("Electrical Plots");
 
-    const int rolling_buffer_count = get_rolling_buffer_count(
-        viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
-        viz_data->rolling_buffers_wrap_around);
-    const int rolling_buffer_offset = get_rolling_buffer_offset(
-        viz_data->rolling_timestamps.size(), viz_data->rolling_buffers_next_idx,
-        viz_data->rolling_buffers_wrap_around);
+    const RollingPlotParams rolling_plot_params = get_rolling_plot_params(
+        viz_data->rolling_buffers, options->rolling_history);
 
-    draw_electrical_plot(rolling_buffer_count, rolling_buffer_offset,
-                         sim_params, sim_state, viz_data);
+    draw_electrical_plot(rolling_plot_params, viz_data->rolling_buffers,
+                         options);
 
     ImGui::End();
 
     ImGui::Begin("Dynamics Plots");
-    draw_rotor_angular_vel_plot(rolling_buffer_count, rolling_buffer_offset,
-                                sim_params, sim_state, viz_data);
+    draw_rotor_angular_vel_plot(rolling_plot_params, viz_data->rolling_buffers);
 
-    draw_torque_plot(rolling_buffer_count, rolling_buffer_offset, sim_params,
-                     sim_state, viz_data);
+    draw_torque_plot(rolling_plot_params, viz_data->rolling_buffers);
 
     ImGui::End();
 
     ImGui::Begin("Controls");
-    draw_control_plots(rolling_buffer_count, rolling_buffer_offset, sim_state,
-                       viz_data);
+    draw_control_plots(rolling_plot_params, viz_data->rolling_buffers);
 
     ImGui::End();
 
@@ -499,9 +498,9 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
         Slider("Phase Advance", &sim_state->six_step_phase_advance, -0.5, 0.5);
     }
     for (int n = 0; n < 3; ++n) {
-        ImGui::Text("Gate Actual %d: %d", n, sim_state->gate_state.actual[n]);
+        ImGui::Text("Gate Actual %d: %d", n, sim_state->gate.actual[n]);
         ImGui::PushID(n);
-        ImGui::Checkbox("Command ", &sim_state->gate_state.commanded[n]);
+        ImGui::Checkbox("Command ", &sim_state->gate.commanded[n]);
         ImGui::PopID();
     }
 

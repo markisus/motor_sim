@@ -7,6 +7,7 @@
 #include "sine_series.h"
 #include "space_vector_modulation.h"
 #include "util/math_constants.h"
+#include "util/time.h"
 #include "wrappers/sdl_context.h"
 #include "wrappers/sdl_imgui.h"
 #include "wrappers/sdl_imgui_context.h"
@@ -27,31 +28,6 @@ PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
 }
 
 int to_gate_enum(bool command) { return command ? HIGH : LOW; }
-
-void update_gate_state(const Scalar dead_time, const Scalar dt,
-                       GateState* gate_state) {
-    for (int i = 0; i < 3; ++i) {
-        const int command = gate_state->commanded[i] ? HIGH : LOW;
-
-        if (gate_state->actual[i] == command) {
-            // nothing to do here
-            continue;
-        }
-
-        if (gate_state->actual[i] == OFF) {
-            gate_state->dead_time_remaining[i] -= dt;
-
-            // see if sufficient dead time has been acheived
-            if (gate_state->dead_time_remaining[i] <= 0) {
-                gate_state->actual[i] = command;
-            }
-        } else {
-            // gate is actually on - need to enter dead time
-            gate_state->actual[i] = OFF;
-            gate_state->dead_time_remaining[i] = dead_time;
-        }
-    }
-}
 
 Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
                     const Scalar electrical_angle) {
@@ -81,35 +57,29 @@ std::array<bool, 3> six_step_commutate(const Scalar electrical_angle,
 }
 
 void step(const SimParams& params, SimState* state) {
-    step_pwm_state(params.dt, &state->pwm_state);
-
-    if (state->gate_controlled_by_pwm) {
-        state->gate_state.commanded = get_pwm_gate_command(state->pwm_state);
-    }
-
-    update_gate_state(params.gate_dead_time, params.dt, &state->gate_state);
+    update_gate_state(params.gate_dead_time, params.dt, &state->gate);
 
     // apply pole voltages
     for (int i = 0; i < 3; ++i) {
         Scalar v_pole = 0;
-        switch (state->gate_state.actual[i]) {
+        switch (state->gate.actual[i]) {
         case OFF:
             // todo: derivation
-            if (state->coil_currents(i) > 0) {
-                state->pole_voltages(i) = 0;
+            if (state->motor.phase_currents(i) > 0) {
+                state->motor.pole_voltages(i) = 0;
             } else {
-                state->pole_voltages(i) = params.bus_voltage;
+                state->motor.pole_voltages(i) = params.bus_voltage;
             }
-            if (std::abs(state->coil_currents(i)) >
+            if (std::abs(state->motor.phase_currents(i)) >
                 params.diode_active_current) {
-                state->pole_voltages(i) -= params.diode_active_voltage;
+                state->motor.pole_voltages(i) -= params.diode_active_voltage;
             }
             break;
         case HIGH:
-            state->pole_voltages(i) = params.bus_voltage;
+            state->motor.pole_voltages(i) = params.bus_voltage;
             break;
         case LOW:
-            state->pole_voltages(i) = 0;
+            state->motor.pole_voltages(i) = 0;
             break;
         default:
             printf("Unhandled switch case!");
@@ -117,46 +87,92 @@ void step(const SimParams& params, SimState* state) {
         }
     }
 
-    state->normalized_bEmfs << // clang-format off
-        get_back_emf(params.normalized_bEmf_coeffs, state->electrical_angle),
+    state->motor.normalized_bEmfs << // clang-format off
+        get_back_emf(params.normalized_bEmf_coeffs, state->motor.electrical_angle),
         get_back_emf(params.normalized_bEmf_coeffs,
-                     state->electrical_angle - 2 * kPI / 3),
+                     state->motor.electrical_angle - 2 * kPI / 3),
         get_back_emf(params.normalized_bEmf_coeffs,
-                     state->electrical_angle - 4 * kPI / 3); // clang-format on
+                     state->motor.electrical_angle - 4 * kPI / 3); // clang-format on
 
-    state->bEmfs = state->normalized_bEmfs * state->rotor_angular_vel;
+    state->motor.bEmfs =
+        state->motor.normalized_bEmfs * state->motor.rotor_angular_vel;
 
     // compute neutral point voltage
     // todo: derivation
-    state->neutral_voltage =
-        (state->pole_voltages.sum() - state->bEmfs.sum()) / 3;
+    state->motor.neutral_voltage =
+        (state->motor.pole_voltages.sum() - state->motor.bEmfs.sum()) / 3;
 
     for (int i = 0; i < 3; ++i) {
-        state->phase_voltages(i) =
-            state->pole_voltages(i) - state->neutral_voltage;
+        state->motor.phase_voltages(i) =
+            state->motor.pole_voltages(i) - state->motor.neutral_voltage;
     }
 
     Eigen::Matrix<Scalar, 3, 1> di_dt;
     for (int i = 0; i < 3; ++i) {
-        di_dt(i) = (state->phase_voltages(i) - state->bEmfs(i) -
-                    state->coil_currents(i) * params.phase_resistance) /
+        di_dt(i) = (state->motor.phase_voltages(i) - state->motor.bEmfs(i) -
+                    state->motor.phase_currents(i) * params.phase_resistance) /
                    params.phase_inductance;
     }
 
-    state->coil_currents += di_dt * params.dt;
+    state->motor.phase_currents += di_dt * params.dt;
 
-    state->torque = state->coil_currents.dot(state->normalized_bEmfs);
+    state->motor.torque =
+        state->motor.phase_currents.dot(state->motor.normalized_bEmfs);
 
-    state->rotor_angular_accel = state->torque / params.rotor_inertia;
-    state->rotor_angular_vel += state->rotor_angular_accel * params.dt;
-    state->rotor_angle += state->rotor_angular_vel * params.dt;
-    state->rotor_angle = std::fmod(state->rotor_angle, 2 * kPI);
-    if (state->rotor_angle < 0) {
-        state->rotor_angle += 2 * kPI;
+    state->motor.rotor_angular_accel =
+        state->motor.torque / params.rotor_inertia;
+    state->motor.rotor_angular_vel +=
+        state->motor.rotor_angular_accel * params.dt;
+    state->motor.rotor_angle += state->motor.rotor_angular_vel * params.dt;
+    state->motor.rotor_angle = std::fmod(state->motor.rotor_angle, 2 * kPI);
+    if (state->motor.rotor_angle < 0) {
+        state->motor.rotor_angle += 2 * kPI;
     }
 
-    state->electrical_angle = state->rotor_angle * params.num_pole_pairs;
-    state->electrical_angle = std::fmod(state->electrical_angle, 2 * kPI);
+    state->motor.electrical_angle =
+        state->motor.rotor_angle * params.num_pole_pairs;
+    state->motor.electrical_angle =
+        std::fmod(state->motor.electrical_angle, 2 * kPI);
+}
+
+void step_foc(const MotorState& motor, FocState* foc_state) {
+    const Scalar desired_current_q = 1.0;
+
+    const Scalar q_axis_angle = motor.electrical_angle - kPI / 2;
+    const Scalar cs = std::cos(-q_axis_angle);
+    const Scalar sn = std::sin(-q_axis_angle);
+    const std::complex<Scalar> park_transform{cs, sn};
+
+    const std::complex<Scalar> current_qd =
+        park_transform *
+        to_complex<Scalar>(
+            (kClarkeTransform2x3 * motor.phase_currents).head<2>());
+
+    const Scalar voltage_q_coupled =
+        pi_control(foc_state->i_controller_params, &foc_state->iq_controller,
+                   foc_state->period, current_qd.real(), desired_current_q);
+    const Scalar voltage_d_coupled =
+        pi_control(foc_state->i_controller_params, &foc_state->id_controller,
+                   foc_state->period, current_qd.imag(), 0);
+
+    const std::complex<Scalar> voltage_qd_coupled = {voltage_q_coupled,
+                                                     voltage_d_coupled};
+
+    const std::complex<Scalar> decoupling_qd =
+        park_transform *
+        to_complex<Scalar>(
+            (kClarkeTransform2x3 * motor.normalized_bEmfs).head<2>() *
+            motor.rotor_angular_vel);
+
+    const std::complex<Scalar> voltage_qd = voltage_qd_coupled - decoupling_qd;
+
+    const std::complex<Scalar> voltage_ab =
+        voltage_qd * std::conj(park_transform);
+
+    // motor.pwm_state.duties = get_pwm_duties(bus_voltage, voltage_ab);
+
+    // printf("Setting duties to %f %f %f\n", motor.pwm_state.duties[0],
+    //        motor.pwm_state.duties[1], motor.pwm_state.duties[2]);
 }
 
 using namespace biro;
@@ -171,8 +187,9 @@ int main(int argc, char* argv[]) {
     VizData viz_data;
     init_viz_data(&viz_data);
 
+    VizOptions viz_options;
+
     // FOC stuff
-    PiParams current_controller_params;
     const Scalar desired_torque = 1.0; // N.m
 
     wrappers::SdlContext sdl_context("Motor Simulator",
@@ -200,75 +217,29 @@ int main(int argc, char* argv[]) {
 
         wrappers::sdl_imgui_newframe(sdl_context.window_);
 
-        run_gui(&params, &state, &viz_data);
+	
+        run_gui(&viz_data, &params, &state, &viz_options);
 
-        current_controller_params =
+        state.foc.i_controller_params =
             make_motor_pi_params(/*bandwidth=*/1,
                                  /*resistance=*/params.phase_resistance,
                                  /*inductance=*/params.phase_inductance);
 
         if (!params.paused) {
             for (int i = 0; i < params.step_multiplier; ++i) {
-
-                state.foc_timer += params.dt;
-                bool trigger_foc = false;
-                if (state.foc_timer > state.foc_dt) {
-                    trigger_foc = true;
-                    state.foc_timer -= state.foc_dt;
-                }
-
-		if (state.commutation_mode != kCommutationModeFOC) {
-		    state.gate_controlled_by_pwm = false;
-		}
-
-                if (trigger_foc &&
-                    state.commutation_mode == kCommutationModeFOC) {
-                    state.gate_controlled_by_pwm = true;
-
-                    const Scalar desired_current_q = 1.0;
-
-                    const Scalar q_axis_angle =
-                        state.electrical_angle - kPI / 2;
-                    const Scalar cs = std::cos(-q_axis_angle);
-                    const Scalar sn = std::sin(-q_axis_angle);
-                    const std::complex<Scalar> park_transform{cs, sn};
-
-                    const std::complex<Scalar> current_qd =
-                        park_transform *
-                        to_complex<Scalar>(
-                            (kClarkeTransform2x3 * state.coil_currents)
-                                .head<2>());
-
-                    const Scalar voltage_q_coupled = pi_control(
-                        current_controller_params, &state.current_q_pi_context,
-                        state.foc_dt, current_qd.real(), desired_current_q);
-                    const Scalar voltage_d_coupled = pi_control(
-                        current_controller_params, &state.current_d_pi_context,
-                        state.foc_dt, current_qd.imag(), 0);
-
-                    const std::complex<Scalar> voltage_qd_coupled = {
-                        voltage_q_coupled, voltage_d_coupled};
-
-                    const std::complex<Scalar> decoupling_qd =
-                        park_transform *
-                        to_complex<Scalar>(
-                            (kClarkeTransform2x3 * state.normalized_bEmfs)
-                                .head<2>() *
-                            state.rotor_angular_vel);
-
-                    const std::complex<Scalar> voltage_qd =
-                        voltage_qd_coupled - decoupling_qd;
-
-                    const std::complex<Scalar> voltage_ab =
-                        voltage_qd * std::conj(park_transform);
-
-                    state.pwm_state.duties =
-                        get_pwm_duties(params.bus_voltage, voltage_ab);
-                }
-
                 if (state.commutation_mode == kCommutationModeSixStep) {
-                    state.gate_state.commanded = six_step_commutate(
-                        state.electrical_angle, state.six_step_phase_advance);
+                    state.gate.commanded =
+                        six_step_commutate(state.motor.electrical_angle,
+                                           state.six_step_phase_advance);
+                }
+
+                if (state.commutation_mode == kCommutationModeFOC) {
+                    if (periodic_timer(state.foc.period, params.dt,
+                                       &state.foc.timer)) {
+                        // step_foc
+                    }
+
+                    // current control loop (fast)
                 }
 
                 step(params, &state);
