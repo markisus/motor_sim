@@ -478,8 +478,17 @@ void run_gui(const VizData& viz_data, VizOptions* options,
 
     // Commutation state
     ImGui::Text("Commutation State");
-    ImGui::Text("Mode");
-    ImGui::RadioButton("None", &sim_state->commutation_mode,
+
+    ImGui::Text("Gate States");
+    for (int i = 0; i < 3; ++i) {
+        std::array<const char*, 3> gate_state_texts{"LOW", "HIGH", "OFF"};
+        ImGui::Text("Gate %d %s", i,
+                    gate_state_texts[sim_state->gate.actual[i]]);
+    }
+
+    ImGui::NewLine();
+
+    ImGui::RadioButton("Manual", &sim_state->commutation_mode,
                        kCommutationModeNone);
     ImGui::SameLine();
     ImGui::RadioButton("Six Step", &sim_state->commutation_mode,
@@ -491,11 +500,25 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     if (sim_state->commutation_mode == kCommutationModeSixStep) {
         Slider("Phase Advance", &sim_state->six_step_phase_advance, -0.5, 0.5);
     }
-    for (int n = 0; n < 3; ++n) {
-        ImGui::Text("Gate Actual %d: %d", n, sim_state->gate.actual[n]);
-        ImGui::PushID(n);
-        ImGui::Checkbox("Command ", &sim_state->gate.commanded[n]);
-        ImGui::PopID();
+
+    if (sim_state->commutation_mode == kCommutationModeNone) {
+        // manual controls
+        ImGui::Text("Manual Command");
+        for (int i = 0; i < 3; ++i) {
+            ImGui::Text("Gate %d", i);
+            ImGui::SameLine();
+            ImGui::PushID(i);
+
+            int current_command = (int)sim_state->gate.commanded[i];
+            ImGui::RadioButton(absl::StrFormat("HIGH", i).c_str(),
+                               &current_command, 1);
+            ImGui::SameLine();
+            ImGui::RadioButton(absl::StrFormat("LOW", i).c_str(),
+                               &current_command, 0);
+
+            sim_state->gate.commanded[i] = (bool)current_command;
+            ImGui::PopID();
+        }
     }
 
     ImGui::End();
