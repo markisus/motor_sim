@@ -312,14 +312,14 @@ void draw_rotor_plot(const VizData& viz_data, const Scalar rotor_angle) {
     }
 }
 
-void draw_space_vector_plot(const VizData& viz_data, const MotorState& motor,
+void draw_space_vector_plot(const VizData& viz_data, const SimState& state,
                             VizOptions* options) {
     ImGui::Checkbox("Use Rotor Frame", &options->use_rotor_frame);
 
-    ImPlot::SetNextPlotLimits(/*x_min=*/-1.5,
-                              /*x_max=*/1.5,
-                              /*y_min=*/-1.5,
-                              /*y_max=*/1.5);
+    ImPlot::SetNextPlotLimits(/*x_min=*/-10.5,
+                              /*x_max=*/10.5,
+                              /*y_min=*/-10.5,
+                              /*y_max=*/10.5);
     if (ImPlot::BeginPlot("##Space Vector Plot", nullptr, nullptr,
                           ImVec2{300, 300}, ImPlotFlags_Default,
                           ImPlotAxisFlags_Default & ~ImPlotAxisFlags_TickLabels,
@@ -330,16 +330,16 @@ void draw_space_vector_plot(const VizData& viz_data, const MotorState& motor,
         ImPlot::PlotLine("##Electrical Circle", viz_data.circle_xs.data(),
                          viz_data.circle_ys.data(), viz_data.circle_xs.size());
 
-        implot_radial_line("Rotor Angle", 0.5f, 0.9f,
-                           options->use_rotor_frame ? 0
-                                                    : motor.electrical_angle);
+        implot_radial_line(
+            "Rotor Angle", 0.0f, 1.0f,
+            options->use_rotor_frame ? 0 : state.motor.electrical_angle);
 
         const std::complex<Scalar> park_transform{
-            std::cos(-motor.electrical_angle),
-            std::sin(-motor.electrical_angle)};
+            std::cos(-state.motor.electrical_angle),
+            std::sin(-state.motor.electrical_angle)};
 
-        std::complex<Scalar> phase_voltage_sv =
-            to_complex<Scalar>(kClarkeTransform2x3 * motor.phase_voltages);
+        std::complex<Scalar> phase_voltage_sv = to_complex<Scalar>(
+            kClarkeTransform2x3 * state.motor.phase_voltages);
 
         if (options->use_rotor_frame) {
             phase_voltage_sv *= park_transform;
@@ -348,8 +348,8 @@ void draw_space_vector_plot(const VizData& viz_data, const MotorState& motor,
         implot_central_line("Phase Voltage Space Vector",
                             phase_voltage_sv.real(), phase_voltage_sv.imag());
 
-        std::complex<Scalar> current_sv =
-            to_complex<Scalar>(kClarkeTransform2x3 * motor.phase_currents);
+        std::complex<Scalar> current_sv = to_complex<Scalar>(
+            kClarkeTransform2x3 * state.motor.phase_currents);
         if (options->use_rotor_frame) {
             current_sv *= park_transform;
         }
@@ -357,14 +357,27 @@ void draw_space_vector_plot(const VizData& viz_data, const MotorState& motor,
         implot_central_line("Current Space Vector", current_sv.real(),
                             current_sv.imag());
 
-        std::complex<Scalar> normed_bEmf_sv =
-            to_complex<Scalar>(kClarkeTransform2x3 * motor.normalized_bEmfs);
+        std::complex<Scalar> normed_bEmf_sv = to_complex<Scalar>(
+            kClarkeTransform2x3 * state.motor.normalized_bEmfs);
         if (options->use_rotor_frame) {
             normed_bEmf_sv *= park_transform;
         }
 
         implot_central_line("Normed bEmf Space Vector", normed_bEmf_sv.real(),
                             normed_bEmf_sv.imag());
+
+        if (state.commutation_mode == kCommutationModeFOC) {
+            auto voltage_sv = state.foc.voltage_qd;
+	    const std::complex<Scalar> rot90 { 0, -1 };
+	    voltage_sv *= rot90; // put into rotor frame
+
+            if (!options->use_rotor_frame) {
+                voltage_sv *= std::conj(park_transform);
+            }
+
+            implot_central_line("FOC Voltage Command", voltage_sv.real(),
+                                voltage_sv.imag());
+        }
 
         ImPlot::PopStyleVar(1);
         ImPlot::EndPlot();
@@ -426,8 +439,9 @@ void run_gui(const VizData& viz_data, VizOptions* options,
 
     ImGui::SliderInt("Step Multiplier", &sim_state->step_multiplier, 1, 5000);
 
-    ImGui::SliderFloat("Rolling History (sec)", &options->rolling_history,
-                       0.001f, 1.0f);
+    ImGui::SliderFloat(
+        "Rolling History (sec)", &options->rolling_history,
+        sim_state->dt * 10, 1.0f);
 
     ImGui::SliderInt("Num Pole Pairs", &sim_state->motor.num_pole_pairs, 1, 8);
 
@@ -449,7 +463,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     ImGui::End();
 
     ImGui::Begin("Space Vector Viz");
-    draw_space_vector_plot(viz_data, sim_state->motor, options);
+    draw_space_vector_plot(viz_data, *sim_state, options);
     ImGui::End();
 
     ImGui::Begin("Electrical Plots");

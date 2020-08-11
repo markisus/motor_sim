@@ -19,22 +19,22 @@ struct FocState {
     PiContext iq_controller;
     PiContext id_controller;
 
-    std::complex<Scalar> voltage_dq_cmd;
+    // output command
+    std::complex<Scalar> voltage_qd;
 };
 
 struct SimState {
     Scalar time = 0;
     bool paused = false;
-    Scalar dt = 1.0 / 100000;  // sec, 100kHz
+    Scalar dt = 1.0 / 1000000;  // sec, 1000kHz
     int step_multiplier = 5e3; // sec
-    Scalar gate_dead_time =
-        dt * 5; // sec
-                // time during commutation when gate is neither high nor low, to
-                // prevent shoot through current
+    Scalar gate_dead_time = 0; // sec
+                               // time during commutation when gate is neither
+                               // high nor low, to prevent shoot through current
     Scalar bus_voltage = 24;
-    Scalar diode_active_voltage = 1; // voltage drop,
-                                     // which develops current flows across
-                                     // flyback diode
+    Scalar diode_active_voltage = 1;    // voltage drop,
+                                        // which develops current flows across
+                                        // flyback diode
     Scalar diode_active_current = 1e-3; // current,
                                         // above which diode develops the
                                         // v_diode_active voltage
@@ -47,6 +47,4 @@ struct SimState {
     GateState gate;
 };
 
-inline void init_sim_state(SimState* state) {
-    init_motor_state(&state->motor);
-}
+inline void init_sim_state(SimState* state) { init_motor_state(&state->motor); }

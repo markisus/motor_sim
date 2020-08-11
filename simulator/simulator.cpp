@@ -136,7 +136,7 @@ get_pole_voltages(const Scalar bus_voltage, const Scalar diode_active_voltage,
     return pole_voltages;
 }
 
-std::complex<Scalar> step_foc(const MotorState& motor, FocState* foc_state) {
+void step_foc(const MotorState& motor, FocState* foc_state) {
     const Scalar desired_current_q = 1.0;
 
     const Scalar q_axis_angle = motor.electrical_angle - kPI / 2;
@@ -149,25 +149,22 @@ std::complex<Scalar> step_foc(const MotorState& motor, FocState* foc_state) {
         to_complex<Scalar>(
             (kClarkeTransform2x3 * motor.phase_currents).head<2>());
 
-    const Scalar voltage_q_coupled =
+    const Scalar voltage_q =
         pi_control(foc_state->i_controller_params, &foc_state->iq_controller,
                    foc_state->period, current_qd.real(), desired_current_q);
-    const Scalar voltage_d_coupled =
+    const Scalar voltage_d =
         pi_control(foc_state->i_controller_params, &foc_state->id_controller,
                    foc_state->period, current_qd.imag(), 0);
 
-    const std::complex<Scalar> voltage_qd_coupled = {voltage_q_coupled,
-                                                     voltage_d_coupled};
+    foc_state->voltage_qd = {voltage_q, voltage_d};
 
-    const std::complex<Scalar> decoupling_qd =
-        park_transform *
-        to_complex<Scalar>(
-            (kClarkeTransform2x3 * motor.normalized_bEmfs).head<2>() *
-            motor.rotor_angular_vel);
+    // const std::complex<Scalar> decoupling_qd =
+    //     park_transform *
+    //     to_complex<Scalar>(
+    //         (kClarkeTransform2x3 * motor.normalized_bEmfs).head<2>() *
+    //         motor.rotor_angular_vel);
 
-    const std::complex<Scalar> voltage_qd = voltage_qd_coupled - decoupling_qd;
-
-    return voltage_qd * std::conj(park_transform);
+    // return voltage_qd * std::conj(park_transform);
 
     // motor.pwm_state.duties = get_pwm_duties(bus_voltage, voltage_ab);
 
@@ -221,12 +218,13 @@ int main(int argc, char* argv[]) {
         run_gui(viz_data, &viz_options, &state);
 
         state.foc.i_controller_params =
-            make_motor_pi_params(/*bandwidth=*/1,
+            make_motor_pi_params(/*bandwidth=*/10,
                                  /*resistance=*/state.motor.phase_resistance,
                                  /*inductance=*/state.motor.phase_inductance);
 
         if (!state.paused) {
             for (int i = 0; i < state.step_multiplier; ++i) {
+                // update relevant commutation modes
                 if (state.commutation_mode == kCommutationModeSixStep) {
                     state.gate.commanded =
                         six_step_commutate(state.motor.electrical_angle,
@@ -236,10 +234,28 @@ int main(int argc, char* argv[]) {
                 if (state.commutation_mode == kCommutationModeFOC) {
                     if (periodic_timer(state.foc.period, state.dt,
                                        &state.foc.timer)) {
-                        // step_foc
+                        step_foc(state.motor, &state.foc);
                     }
 
-                    // current control loop (fast)
+                    if (step_pwm_state(state.dt, &state.pwm)) {
+                        // establish the requested qd voltage (fast loop)
+                        const Scalar q_axis_angle =
+                            state.motor.electrical_angle - kPI / 2;
+                        const Scalar cs = std::cos(q_axis_angle);
+                        const Scalar sn = std::sin(q_axis_angle);
+                        const std::complex<Scalar> inv_park_transform{cs, sn};
+                        std::complex<Scalar> voltage_ab =
+                            inv_park_transform * state.foc.voltage_qd;
+                        // need to decouple (todo: investigate sign)
+                        // voltage_ab += to_complex<Scalar>(
+                        //     (kClarkeTransform2x3 * state.motor.normalized_bEmfs)
+                        //         .head<2>() *
+                        //     state.motor.rotor_angular_vel);
+                        state.pwm.duties =
+                            get_pwm_duties(state.bus_voltage, voltage_ab);
+                    }
+
+                    state.gate.commanded = get_pwm_gate_command(state.pwm);
                 }
 
                 // step motor

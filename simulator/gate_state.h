@@ -34,9 +34,13 @@ inline void update_gate_state(const Scalar dead_time, const Scalar dt,
         } else {
             // gate is actually on - need to enter dead time
             gate_state->actual[i] = OFF;
-            gate_state->dead_time_remaining[i] = dead_time;
+            gate_state->dead_time_remaining[i] = dead_time - dt;
+
+            // see if sufficient dead time has been acheived
+            // simulation speed is too coarse to see the dead time
+            if (gate_state->dead_time_remaining[i] <= 0) {
+                gate_state->actual[i] = command;
+            }
         }
     }
 }
-
-
