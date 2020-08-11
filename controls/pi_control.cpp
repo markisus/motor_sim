@@ -2,10 +2,10 @@
 #include <algorithm>
 #include <cmath>
 
-Scalar pi_control(const PiParams& params, PiContext* context, const Scalar dt,
-                  const Scalar actual, const Scalar target) {
+PiScalar pi_control(const PiParams& params, PiContext* context,
+                    const PiScalar dt, const PiScalar actual,
+                    const PiScalar target) {
     context->err = target - actual;
-
     context->integral = std::clamp(context->integral + context->err * dt,
                                    -params.max_integral, params.max_integral);
 

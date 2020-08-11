@@ -12,7 +12,7 @@ constexpr int kPlotWidth = -1;   // sec
 
 struct RollingPlotParams {
     int count;
-    int offset;
+    int begin;
     Scalar begin_time;
     Scalar end_time;
 };
@@ -22,15 +22,12 @@ RollingPlotParams get_rolling_plot_params(const RollingBuffers& buffers,
 
     RollingPlotParams params;
 
-    params.count = get_rolling_buffer_count(
-        buffers.timestamps.size(), buffers.next_idx, buffers.wrap_around);
-    params.offset = get_rolling_buffer_offset(
-        buffers.timestamps.size(), buffers.next_idx, buffers.wrap_around);
+    params.count = get_rolling_buffer_count(buffers.ctx);
+    params.begin = get_rolling_buffer_begin(buffers.ctx);
     if (params.count != 0) {
-        params.begin_time = buffers.timestamps[params.offset];
+        params.begin_time = buffers.timestamps[params.begin];
         params.end_time =
-            buffers.timestamps[(params.offset + params.count - 1) %
-                               buffers.timestamps.size()];
+            buffers.timestamps[get_rolling_buffer_end(buffers.ctx)];
     } else {
         // no data to display
         params.begin_time = 0;
@@ -117,7 +114,7 @@ void draw_electrical_plot(const RollingPlotParams& params,
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Voltage", i).c_str(),
                                  buffers.timestamps.data(),
                                  buffers.phase_vs[i].data(), params.count,
-                                 params.offset, sizeof(Scalar));
+                                 params.begin, sizeof(Scalar));
                 ImPlot::PopStyleVar();
                 ImPlot::PopStyleColor();
             }
@@ -129,7 +126,7 @@ void draw_electrical_plot(const RollingPlotParams& params,
                     absl::StrFormat("Coil %d Normed bEmf", i).c_str(),
                     buffers.timestamps.data(),
                     buffers.normalized_bEmfs[i].data(), params.count,
-                    params.offset, sizeof(Scalar));
+                    params.begin, sizeof(Scalar));
                 ImPlot::PopStyleColor();
             }
 
@@ -139,7 +136,7 @@ void draw_electrical_plot(const RollingPlotParams& params,
                 ImPlot::PlotLine(absl::StrFormat("Coil %d bEmf", i).c_str(),
                                  buffers.timestamps.data(),
                                  buffers.bEmfs[i].data(), params.count,
-                                 params.offset, sizeof(Scalar));
+                                 params.begin, sizeof(Scalar));
                 ImPlot::PopStyleColor();
             }
 
@@ -150,7 +147,7 @@ void draw_electrical_plot(const RollingPlotParams& params,
                 ImPlot::PlotLine(absl::StrFormat("Coil %d Current", i).c_str(),
                                  buffers.timestamps.data(),
                                  buffers.phase_currents[i].data(), params.count,
-                                 params.offset, sizeof(Scalar));
+                                 params.begin, sizeof(Scalar));
                 ImPlot::PopStyleVar();
                 ImPlot::PopStyleColor();
             }
@@ -167,7 +164,7 @@ void draw_torque_plot(const RollingPlotParams& params,
     if (ImPlot::BeginPlot("Torque", "Seconds", "N . m",
                           ImVec2(kPlotWidth, kPlotHeight))) {
         ImPlot::PlotLine("", buffers.timestamps.data(), buffers.torque.data(),
-                         params.count, params.offset, sizeof(Scalar));
+                         params.count, params.begin, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 }
@@ -181,7 +178,7 @@ void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
                           ImVec2(kPlotWidth, kPlotHeight))) {
         ImPlot::PlotLine("", buffers.timestamps.data(),
                          buffers.rotor_angular_vel.data(), params.count,
-                         params.offset, sizeof(Scalar));
+                         params.begin, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 }
@@ -189,7 +186,7 @@ void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
 void update_rolling_buffers(const Scalar time, const MotorState& motor,
                             const PwmState& pwm, const FocState& foc,
                             RollingBuffers* buffers) {
-    const int next_idx = buffers->next_idx;
+    const int next_idx = buffers->ctx.next_idx;
 
     buffers->timestamps[next_idx] = time;
 
@@ -218,8 +215,7 @@ void update_rolling_buffers(const Scalar time, const MotorState& motor,
     buffers->rotor_angular_vel[next_idx] = motor.rotor_angular_vel;
     buffers->torque[next_idx] = motor.torque;
 
-    rolling_buffer_advance_idx(buffers->timestamps.size(), &buffers->next_idx,
-                               &buffers->wrap_around);
+    rolling_buffer_advance_idx(&buffers->ctx);
 }
 
 void draw_control_plots(const RollingPlotParams& params,
@@ -234,11 +230,11 @@ void draw_control_plots(const RollingPlotParams& params,
             ImPlot::PlotLine(absl::StrFormat("Gate %d", i).c_str(),
                              buffers.timestamps.data(),
                              buffers.pwm_duties[i].data(), params.count,
-                             params.offset, sizeof(Scalar));
+                             params.begin, sizeof(Scalar));
         }
 
         ImPlot::PlotLine("Level", buffers.timestamps.data(),
-                         buffers.pwm_level.data(), params.count, params.offset,
+                         buffers.pwm_level.data(), params.count, params.begin,
                          sizeof(Scalar));
 
         ImPlot::EndPlot();
@@ -251,11 +247,11 @@ void draw_control_plots(const RollingPlotParams& params,
                           ImVec2(kPlotWidth, kPlotHeight))) {
         ImPlot::PlotLine("iq error", buffers.timestamps.data(),
                          buffers.current_q_err.data(), params.count,
-                         params.offset, sizeof(Scalar));
+                         params.begin, sizeof(Scalar));
 
         ImPlot::PlotLine("id error", buffers.timestamps.data(),
                          buffers.current_d_err.data(), params.count,
-                         params.offset, sizeof(Scalar));
+                         params.begin, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 
@@ -266,11 +262,11 @@ void draw_control_plots(const RollingPlotParams& params,
                           ImVec2(kPlotWidth, kPlotHeight))) {
         ImPlot::PlotLine("iq int", buffers.timestamps.data(),
                          buffers.current_q_integral.data(), params.count,
-                         params.offset, sizeof(Scalar));
+                         params.begin, sizeof(Scalar));
 
         ImPlot::PlotLine("id int", buffers.timestamps.data(),
                          buffers.current_d_integral.data(), params.count,
-                         params.offset, sizeof(Scalar));
+                         params.begin, sizeof(Scalar));
         ImPlot::EndPlot();
     }
 }
@@ -368,8 +364,8 @@ void draw_space_vector_plot(const VizData& viz_data, const SimState& state,
 
         if (state.commutation_mode == kCommutationModeFOC) {
             auto voltage_sv = state.foc.voltage_qd;
-	    const std::complex<Scalar> rot90 { 0, -1 };
-	    voltage_sv *= rot90; // put into rotor frame
+            const std::complex<Scalar> rot90{0, -1};
+            voltage_sv *= rot90; // put into rotor frame
 
             if (!options->use_rotor_frame) {
                 voltage_sv *= std::conj(park_transform);
@@ -439,9 +435,8 @@ void run_gui(const VizData& viz_data, VizOptions* options,
 
     ImGui::SliderInt("Step Multiplier", &sim_state->step_multiplier, 1, 5000);
 
-    ImGui::SliderFloat(
-        "Rolling History (sec)", &options->rolling_history,
-        sim_state->dt * 10, 1.0f);
+    ImGui::SliderFloat("Rolling History (sec)", &options->rolling_history,
+                       sim_state->dt * 10, 1.0f);
 
     ImGui::SliderInt("Num Pole Pairs", &sim_state->motor.num_pole_pairs, 1, 8);
 

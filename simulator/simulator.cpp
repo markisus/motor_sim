@@ -1,7 +1,7 @@
 #include "clarke_transform.h"
+#include "controls/pi_control.h"
 #include "conversions.h"
 #include "gui.h"
-#include "pi_control.h"
 #include "scalar.h"
 #include "sine_series.h"
 #include "space_vector_modulation.h"
@@ -248,7 +248,8 @@ int main(int argc, char* argv[]) {
                             inv_park_transform * state.foc.voltage_qd;
                         // need to decouple (todo: investigate sign)
                         // voltage_ab += to_complex<Scalar>(
-                        //     (kClarkeTransform2x3 * state.motor.normalized_bEmfs)
+                        //     (kClarkeTransform2x3 *
+                        //     state.motor.normalized_bEmfs)
                         //         .head<2>() *
                         //     state.motor.rotor_angular_vel);
                         state.pwm.duties =

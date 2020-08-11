@@ -83,15 +83,7 @@ cc_binary(
     ])
     
 
-cc_library(
-    name = "pi_control",
-    hdrs = ["pi_control.h"],
-    srcs = ["pi_control.cpp",
-            "pi_control.h"],
-    deps = [
-        ":scalar"],
-    copts = COPTS,
-)
+
 
 cc_library(
     name = "sim_state",
@@ -106,13 +98,14 @@ cc_library(
     srcs = ["gui.cpp"],
     hdrs = ["gui.h"],
     deps = [
+        "//controls:pi_control",
         "//third_party/imgui:imgui_base",
         "//third_party/implot:implot",
         "//util:math_constants",
+        "//util:rolling_buffer",
         ":clarke_transform",
         ":conversions",
         ":motor_state",
-        ":pi_control",
         ":pwm_state",
         ":scalar",
         ":sim_state",
@@ -136,16 +129,16 @@ cc_binary(
         ":clarke_transform",
         ":conversions",
         ":gui",
-        ":pi_control",
-        ":scalar",
-        ":sine_series",
-        ":space_vector_modulation",
+        "//controls:pi_control",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",
         "//third_party/implot:implot",
         "//wrappers:sdl_context",
         "//wrappers:sdl_imgui",
+        ":scalar",
+        ":sine_series",
+        ":space_vector_modulation",
         "@com_google_absl//absl/strings:str_format",
     ],
     copts = COPTS, # need cpp17 to avoid eigen weirdness

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "controls/pi_control.h"
 #include "gate_state.h"
 #include "motor_state.h"
-#include "pi_control.h"
 #include "pwm_state.h"
 #include "scalar.h"
 #include <Eigen/Dense>
@@ -26,7 +26,7 @@ struct FocState {
 struct SimState {
     Scalar time = 0;
     bool paused = false;
-    Scalar dt = 1.0 / 1000000;  // sec, 1000kHz
+    Scalar dt = 1.0 / 1000000; // sec, 1000kHz
     int step_multiplier = 5e3; // sec
     Scalar gate_dead_time = 0; // sec
                                // time during commutation when gate is neither

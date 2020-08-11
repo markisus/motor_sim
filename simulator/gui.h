@@ -2,40 +2,14 @@
 
 #include "scalar.h"
 #include "sim_state.h"
+#include "util/rolling_buffer.h"
 #include <array>
-
-inline void rolling_buffer_advance_idx(const size_t rolling_buffer_capacity,
-                                       int* next_idx, bool* wrap_around) {
-    ++(*next_idx);
-    if ((*next_idx) >= rolling_buffer_capacity) {
-        (*next_idx) = 0;
-        (*wrap_around) = true;
-    }
-}
-
-inline int get_rolling_buffer_count(const size_t rolling_buffer_capacity,
-                                    const int next_idx,
-                                    const bool wrap_around) {
-    if (wrap_around) {
-        return rolling_buffer_capacity;
-    }
-    return next_idx;
-}
-
-inline int get_rolling_buffer_offset(const size_t rolling_buffer_capacity,
-                                     const int next_idx,
-                                     const bool wrap_around) {
-    if (wrap_around) {
-        return next_idx;
-    }
-    return 0;
-}
 
 constexpr int kNumRollingPts = 200;
 
 struct RollingBuffers {
-    int next_idx = 0;
-    bool wrap_around = false;
+
+    RollingBufferContext ctx{kNumRollingPts};
 
     std::array<Scalar, kNumRollingPts> timestamps;
 
