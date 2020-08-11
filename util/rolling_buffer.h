@@ -34,9 +34,7 @@ inline int get_rolling_buffer_begin(const RollingBufferContext& context) {
     return 0;
 }
 
-inline int get_rolling_buffer_end(const RollingBufferContext& context) {
-    if (context.wrap_around) {
-        return (context.next_idx + context.capacity - 1) % context.capacity;
-    }
-    return context.next_idx;
+// undefined if count == 0
+inline int get_rolling_buffer_back(const RollingBufferContext& context) {
+    return (context.next_idx + context.capacity - 1) % context.capacity;
 }

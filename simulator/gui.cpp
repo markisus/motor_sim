@@ -27,7 +27,7 @@ RollingPlotParams get_rolling_plot_params(const RollingBuffers& buffers,
     if (params.count != 0) {
         params.begin_time = buffers.timestamps[params.begin];
         params.end_time =
-            buffers.timestamps[get_rolling_buffer_end(buffers.ctx)];
+            buffers.timestamps[get_rolling_buffer_back(buffers.ctx)];
     } else {
         // no data to display
         params.begin_time = 0;
