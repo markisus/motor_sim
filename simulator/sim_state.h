@@ -39,6 +39,10 @@ struct GateState {
     std::array<Scalar, 3> dead_time_remaining = {};
 };
 
+constexpr int kCommutationModeNone = 0;
+constexpr int kCommutationModeSixStep = 1;
+constexpr int kCommutationModeFOC = 2;
+
 struct SimState {
     Scalar time = 0;
 
@@ -52,8 +56,11 @@ struct SimState {
 
     Scalar neutral_voltage;
 
-    // todo: move this
+    int commutation_mode = kCommutationModeNone;
+
     Scalar six_step_phase_advance = 0; // proportion of a cycle (0 to 1)
+
+    bool gate_controlled_by_pwm = false;
 
     GateState gate_state;
     PwmState pwm_state;

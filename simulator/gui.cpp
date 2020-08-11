@@ -485,16 +485,23 @@ void run_gui(SimParams* sim_params, SimState* sim_state, VizData* viz_data) {
 
     // Commutation state
     ImGui::Text("Commutation State");
-    Slider("Phase Advance", &sim_state->six_step_phase_advance, -0.5, 0.5);
+    ImGui::Text("Mode");
+    ImGui::RadioButton("None", &sim_state->commutation_mode,
+                       kCommutationModeNone);
+    ImGui::SameLine();
+    ImGui::RadioButton("Six Step", &sim_state->commutation_mode,
+                       kCommutationModeSixStep);
+    ImGui::SameLine();
+    ImGui::RadioButton("FOC", &sim_state->commutation_mode,
+                       kCommutationModeFOC);
+
+    if (sim_state->commutation_mode == kCommutationModeSixStep) {
+        Slider("Phase Advance", &sim_state->six_step_phase_advance, -0.5, 0.5);
+    }
     for (int n = 0; n < 3; ++n) {
-        ImGui::Text("Gate %d:", n);
-        ImGui::SameLine();
+        ImGui::Text("Gate Actual %d: %d", n, sim_state->gate_state.actual[n]);
         ImGui::PushID(n);
-        ImGui::RadioButton("Low", &sim_state->gate_state.actual[n], 0);
-        ImGui::SameLine();
-        ImGui::RadioButton("High", &sim_state->gate_state.actual[n], 1);
-        ImGui::SameLine();
-        ImGui::RadioButton("Off", &sim_state->gate_state.actual[n], 2);
+        ImGui::Checkbox("Command ", &sim_state->gate_state.commanded[n]);
         ImGui::PopID();
     }
 

@@ -41,9 +41,9 @@ struct SimParams {
 
 inline void init_sim_params(SimParams* sim_params) {
     sim_params->num_pole_pairs = 4;
-    sim_params->phase_inductance = 1;
-    sim_params->phase_resistance = 1;
-    sim_params->bus_voltage = 5;
+    sim_params->phase_inductance = 1e-3;
+    sim_params->phase_resistance = 1e-3;
+    sim_params->bus_voltage = 24;
     sim_params->diode_active_voltage = 1;
     sim_params->diode_active_current = 1e-3;
     sim_params->rotor_inertia = 1;

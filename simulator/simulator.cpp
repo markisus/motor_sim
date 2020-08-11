@@ -82,7 +82,11 @@ std::array<bool, 3> six_step_commutate(const Scalar electrical_angle,
 
 void step(const SimParams& params, SimState* state) {
     step_pwm_state(params.dt, &state->pwm_state);
-    state->gate_state.commanded = get_pwm_gate_command(state->pwm_state);
+
+    if (state->gate_controlled_by_pwm) {
+        state->gate_state.commanded = get_pwm_gate_command(state->pwm_state);
+    }
+
     update_gate_state(params.gate_dead_time, params.dt, &state->gate_state);
 
     // apply pole voltages
@@ -213,12 +217,15 @@ int main(int argc, char* argv[]) {
                     state.foc_timer -= state.foc_dt;
                 }
 
-                if (trigger_foc) {
-                    // const Scalar normed_bEmf0_q =
-                    //     kClarkeScale * 1.5 *
-                    //     params.normalized_bEmf_coeffs(0);
+		if (state.commutation_mode != kCommutationModeFOC) {
+		    state.gate_controlled_by_pwm = false;
+		}
+
+                if (trigger_foc &&
+                    state.commutation_mode == kCommutationModeFOC) {
+                    state.gate_controlled_by_pwm = true;
+
                     const Scalar desired_current_q = 1.0;
-                    // desired_torque / normed_bEmf0_q;
 
                     const Scalar q_axis_angle =
                         state.electrical_angle - kPI / 2;
@@ -257,6 +264,11 @@ int main(int argc, char* argv[]) {
 
                     state.pwm_state.duties =
                         get_pwm_duties(params.bus_voltage, voltage_ab);
+                }
+
+                if (state.commutation_mode == kCommutationModeSixStep) {
+                    state.gate_state.commanded = six_step_commutate(
+                        state.electrical_angle, state.six_step_phase_advance);
                 }
 
                 step(params, &state);
