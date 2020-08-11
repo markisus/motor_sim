@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
 
     Scalar time = 0;
     Scalar v_in = 0;
+    Scalar v_in_desired = 0;
     Scalar R = 1e-3;
     Scalar L = 1e-4;
     Scalar E = 0.0;
@@ -93,10 +94,10 @@ int main(int argc, char* argv[]) {
 
         for (int j = 0; j < step_multiplier; ++j) {
             if (periodic_timer<Scalar>(pi_period, dt, &pi_timer)) {
-                v_in = pi_control(pi_params, &pi_context, pi_period, i,
+                v_in_desired = pi_control(pi_params, &pi_context, pi_period, i,
                                   target_current);
             }
-            v_in += E;
+	    v_in = v_in_desired + E;
             step(dt, v_in, R, L, E, &i);
             time += dt;
         }
@@ -130,7 +131,8 @@ int main(int argc, char* argv[]) {
         ImGui::Text("R %f", R);
         ImGui::Text("L %f", L);
         ImGui::Text("E %f", E);
-	ImGui::Text("i err %f", pi_context.err);
+        ImGui::Text("i err %f", pi_context.err);
+        ImGui::Text("i int %f", pi_context.integral);
         ImGui::End();
 
         ImGui::Begin("Plots");
