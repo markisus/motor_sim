@@ -4,6 +4,18 @@
 #include <Eigen/Dense>
 
 struct MotorState {
+    // motor characteristics
+    int num_pole_pairs = 4;
+    Scalar rotor_inertia = 1; // moment of inertia
+    Scalar mechanical_to_electrical_offset = 0;
+    Scalar phase_inductance = 1e-3;
+    Scalar phase_resistance = 1e-2;
+    // normalized bEmf aka torque/current curve
+    // odd coefficients of sine fourier expansion
+    Eigen::Matrix<Scalar, 5, 1> normalized_bEmf_coeffs;
+    std::array<Scalar, 3600> cogging_torque_map;
+    std::array<Scalar, 3600> stiction_torque_map;
+
     Scalar rotor_angle = 0;
     Scalar rotor_angular_vel = 0;
     Scalar rotor_angular_accel = 0;
@@ -28,4 +40,5 @@ inline void init_motor_state(MotorState* motor) {
     motor->phase_voltages.setZero();
     motor->phase_currents.setZero();
     motor->bEmfs.setZero();
+    motor->normalized_bEmf_coeffs << 1, 0, 0, 0, 0;
 }

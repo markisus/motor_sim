@@ -2,7 +2,6 @@
 #include "clarke_transform.h"
 #include "conversions.h"
 #include "scalar.h"
-#include "sim_params.h"
 #include "util/math_constants.h"
 #include <absl/strings/str_format.h>
 #include <imgui.h>
@@ -413,70 +412,65 @@ bool Slider(const char* label, Scalar* scalar, Scalar low, Scalar high) {
     return interacted;
 }
 
-void run_gui(VizData* viz_data, SimParams* sim_params, SimState* sim_state,
-             VizOptions* options) {
-    if (!sim_params->paused) {
-        update_rolling_buffers(sim_state->time, sim_state->motor,
-                               sim_state->pwm, sim_state->foc,
-                               &viz_data->rolling_buffers);
-    }
+void run_gui(const VizData& viz_data, VizOptions* options,
+             SimState* sim_state) {
 
     ImGui::Begin("Simulation Control");
 
     ImGui::Text("Simulation Time: %f", sim_state->time);
-    if (sim_params->paused) {
-        sim_params->paused = !ImGui::Button("Resume");
+    if (sim_state->paused) {
+        sim_state->paused = !ImGui::Button("Resume");
     } else {
-        sim_params->paused = ImGui::Button("Pause");
+        sim_state->paused = ImGui::Button("Pause");
     }
 
-    ImGui::SliderInt("Step Multiplier", &sim_params->step_multiplier, 1, 5000);
+    ImGui::SliderInt("Step Multiplier", &sim_state->step_multiplier, 1, 5000);
 
     ImGui::SliderFloat("Rolling History (sec)", &options->rolling_history,
                        0.001f, 1.0f);
 
-    ImGui::SliderInt("Num Pole Pairs", &sim_params->num_pole_pairs, 1, 8);
+    ImGui::SliderInt("Num Pole Pairs", &sim_state->motor.num_pole_pairs, 1, 8);
 
-    Slider("Rotor Moment of Inertia (kg m^2)", &sim_params->rotor_inertia, 0.1,
-           10);
+    Slider("Rotor Moment of Inertia (kg m^2)", &sim_state->motor.rotor_inertia,
+           0.1, 10);
 
-    Slider("Bus Voltage", &sim_params->bus_voltage, 1.0, 120);
-    Slider("Diode Active Voltage", &sim_params->diode_active_voltage, 0.0, 5);
+    Slider("Bus Voltage", &sim_state->bus_voltage, 1.0, 120);
+    Slider("Diode Active Voltage", &sim_state->diode_active_voltage, 0.0, 5);
 
     order_of_magnitude_control("Phase Inductance",
-                               &sim_params->phase_inductance);
+                               &sim_state->motor.phase_inductance);
     order_of_magnitude_control("Phase Resistance",
-                               &sim_params->phase_resistance);
+                               &sim_state->motor.phase_resistance);
 
     ImGui::End();
 
     ImGui::Begin("Rotor Viz");
-    draw_rotor_plot(*viz_data, sim_state->motor.rotor_angle);
+    draw_rotor_plot(viz_data, sim_state->motor.rotor_angle);
     ImGui::End();
 
     ImGui::Begin("Space Vector Viz");
-    draw_space_vector_plot(*viz_data, sim_state->motor, options);
+    draw_space_vector_plot(viz_data, sim_state->motor, options);
     ImGui::End();
 
     ImGui::Begin("Electrical Plots");
 
     const RollingPlotParams rolling_plot_params = get_rolling_plot_params(
-        viz_data->rolling_buffers, options->rolling_history);
+        viz_data.rolling_buffers, options->rolling_history);
 
-    draw_electrical_plot(rolling_plot_params, viz_data->rolling_buffers,
+    draw_electrical_plot(rolling_plot_params, viz_data.rolling_buffers,
                          options);
 
     ImGui::End();
 
     ImGui::Begin("Dynamics Plots");
-    draw_rotor_angular_vel_plot(rolling_plot_params, viz_data->rolling_buffers);
+    draw_rotor_angular_vel_plot(rolling_plot_params, viz_data.rolling_buffers);
 
-    draw_torque_plot(rolling_plot_params, viz_data->rolling_buffers);
+    draw_torque_plot(rolling_plot_params, viz_data.rolling_buffers);
 
     ImGui::End();
 
     ImGui::Begin("Controls");
-    draw_control_plots(rolling_plot_params, viz_data->rolling_buffers);
+    draw_control_plots(rolling_plot_params, viz_data.rolling_buffers);
 
     ImGui::End();
 

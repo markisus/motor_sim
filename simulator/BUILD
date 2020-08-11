@@ -113,7 +113,6 @@ cc_library(
         ":pi_control",
         ":pwm_state",
         ":scalar",
-        ":sim_params",
         ":sim_state",
         "@com_google_absl//absl/strings:str_format",
     ])
@@ -128,15 +127,6 @@ cc_library(
     deps = [":scalar"]
 )
 
-cc_library(
-    name = "sim_params",
-    hdrs = ["sim_params.h"],
-    deps = [
-        "//third_party/eigen:eigen",
-        "//util:math_constants",
-        ":scalar",
-    ]
-)
 cc_binary(
     name = "simulator",
     srcs = ["simulator.cpp"],
@@ -146,7 +136,6 @@ cc_binary(
         ":gui",
         ":pi_control",
         ":scalar",
-        ":sim_params",
         ":sine_series",
         ":space_vector_modulation",
         "//third_party/eigen:eigen",

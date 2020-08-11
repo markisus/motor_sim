@@ -1,7 +1,6 @@
 #pragma once
 
 #include "scalar.h"
-#include "sim_params.h"
 #include "sim_state.h"
 #include <array>
 
@@ -74,5 +73,9 @@ struct VizData {
 
 void init_viz_data(VizData* viz_data);
 
-void run_gui(VizData* viz_data, SimParams* sim_params, SimState* sim_state,
-             VizOptions* viz_options);
+void update_rolling_buffers(const Scalar time, const MotorState& motor,
+                            const PwmState& pwm, const FocState& foc,
+                            RollingBuffers* buffers);
+
+void run_gui(const VizData& viz_data, VizOptions* viz_options,
+             SimState* sim_state);
