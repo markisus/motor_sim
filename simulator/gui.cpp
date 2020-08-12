@@ -18,6 +18,42 @@ struct RollingPlotParams {
     Scalar end_time;
 };
 
+// This auto scroll implementation is janky
+// it breaks the zooming functionality so it only activates half the time
+// (see comment on can_trigger_auto_scroll)
+struct AutoScroller {
+    float last_y_min = -10;
+    float last_y_max = 10;
+    float last_y_range = last_y_max - last_y_min;
+    bool can_trigger_auto_scroll = false;
+};
+
+// call before BeginPlot
+void implot_autoscroll_next_plot(Scalar latest_data, AutoScroller* ctx) {
+    // const int last_idx = get_rolling_buffer_back(buffers.ctx);
+    // const Scalar last_angular_vel = buffers.rotor_angular_vel[last_idx];
+
+    // auto scroll
+    if (ctx->can_trigger_auto_scroll) {
+        if (latest_data < ctx->last_y_min) {
+            ImPlot::SetNextPlotLimitsY(
+                latest_data, latest_data + ctx->last_y_range, ImGuiCond_Always);
+        } else if (latest_data > ctx->last_y_max) {
+            ImPlot::SetNextPlotLimitsY(latest_data - ctx->last_y_range,
+                                       latest_data, ImGuiCond_Always);
+        }
+    }
+    ctx->can_trigger_auto_scroll = !ctx->can_trigger_auto_scroll;
+}
+
+// call after BeginPlot, before EndPlot
+void implot_update_autoscroll(AutoScroller* ctx) {
+    const auto plot_limits = ImPlot::GetPlotLimits(0);
+    ctx->last_y_min = plot_limits.Y.Min;
+    ctx->last_y_max = plot_limits.Y.Max;
+    ctx->last_y_range = ctx->last_y_max - ctx->last_y_min;
+}
+
 RollingPlotParams get_rolling_plot_params(const RollingBuffers& buffers,
                                           const Scalar rolling_history) {
 
@@ -177,32 +213,12 @@ void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
 
     ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
 
-    // This auto scroll implementation is janky
-    // it breaks the zooming functionality so it only activates half the time
-    // (see comment on can_trigger_auto_scroll)
-
-    // state variables for auto scroll
-    static float last_y_min = -10;
-    static float last_y_max = 10;
-    static float last_y_range = last_y_max - last_y_min;
-    static bool can_trigger_auto_scroll =
-        false; // hack: flips true and false to allow ImPlot library to win half
-               // the time when it's trying to update the zoom
-
-    // auto scroll
-    if (get_rolling_buffer_count(buffers.ctx) > 0 && can_trigger_auto_scroll) {
+    static AutoScroller as;
+    if (get_rolling_buffer_count(buffers.ctx) > 0) {
         const int last_idx = get_rolling_buffer_back(buffers.ctx);
         const Scalar last_angular_vel = buffers.rotor_angular_vel[last_idx];
-        if (last_angular_vel < last_y_min) {
-            ImPlot::SetNextPlotLimitsY(last_angular_vel,
-                                       last_angular_vel + last_y_range,
-                                       ImGuiCond_Always);
-        } else if (last_angular_vel > last_y_max) {
-            ImPlot::SetNextPlotLimitsY(last_angular_vel - last_y_range,
-                                       last_angular_vel, ImGuiCond_Always);
-        }
+        implot_autoscroll_next_plot(last_angular_vel, &as);
     }
-    can_trigger_auto_scroll = !can_trigger_auto_scroll;
 
     if (ImPlot::BeginPlot("Rotor Angular Vel", "Seconds", "Radians / Sec",
                           ImVec2(kPlotWidth, kPlotHeight))) {
@@ -211,10 +227,8 @@ void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
                          buffers.rotor_angular_vel.data(), params.count,
                          params.begin, sizeof(Scalar));
 
-        const auto plot_limits = ImPlot::GetPlotLimits(0);
-        last_y_min = plot_limits.Y.Min;
-        last_y_max = plot_limits.Y.Max;
-        last_y_range = last_y_max - last_y_min;
+        implot_update_autoscroll(&as);
+
         ImPlot::EndPlot();
     }
 }
