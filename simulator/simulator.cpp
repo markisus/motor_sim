@@ -212,6 +212,8 @@ int main(int argc, char* argv[]) {
 
         if (!state.paused) {
             for (int i = 0; i < state.step_multiplier; ++i) {
+                const bool new_pwm_cycle = step_pwm_state(state.dt, &state.pwm);
+
                 // update relevant commutation modes
                 if (state.commutation_mode == kCommutationModeSixStep) {
                     state.gate.commanded =
@@ -226,7 +228,7 @@ int main(int argc, char* argv[]) {
                     }
 
                     // assert the requested qd voltage with PWM
-                    if (step_pwm_state(state.dt, &state.pwm)) {
+                    if (new_pwm_cycle) {
                         const std::complex<Scalar> inv_park_transform =
                             get_rotation(state.motor.q_axis_electrical_angle);
 
@@ -234,10 +236,8 @@ int main(int argc, char* argv[]) {
                             inv_park_transform * state.foc.voltage_qd;
 
                         const std::complex<Scalar> existing_back_emf_ab =
-                            to_complex<Scalar>((kClarkeTransform2x3 *
-                                                state.motor.normalized_bEmfs)
-                                                   .head<2>() *
-                                               state.motor.rotor_angular_vel);
+                            clarke_transform(state.motor.normalized_bEmfs) *
+                            state.motor.rotor_angular_vel;
 
                         // need to shift the applied voltage up to counteract
                         // the existing back emf

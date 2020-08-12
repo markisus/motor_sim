@@ -244,9 +244,7 @@ void update_rolling_buffers(const Scalar time, const MotorState& motor,
             const std::complex<Scalar> park_transform =
                 get_rotation(-motor.q_axis_electrical_angle);
             const std::complex<Scalar> current_qd =
-                park_transform *
-                to_complex<Scalar>(
-                    (kClarkeTransform2x3 * motor.phase_currents).head<2>());
+                park_transform * clarke_transform(motor.phase_currents);
             buffers->current_q[next_idx] = current_qd.real();
             buffers->current_d[next_idx] = current_qd.imag();
         }
@@ -395,12 +393,11 @@ void draw_space_vector_plot(const VizData& viz_data, const SimState& state,
             "Rotor Angle", 0.0f, 1.0f,
             options->use_rotor_frame ? 0 : state.motor.electrical_angle);
 
-        const std::complex<Scalar> park_transform{
-            std::cos(-state.motor.electrical_angle),
-            std::sin(-state.motor.electrical_angle)};
+        const std::complex<Scalar> park_transform =
+            get_rotation(-state.motor.electrical_angle);
 
-        std::complex<Scalar> phase_voltage_sv = to_complex<Scalar>(
-            kClarkeTransform2x3 * state.motor.phase_voltages);
+        std::complex<Scalar> phase_voltage_sv =
+            clarke_transform(state.motor.phase_voltages);
 
         if (options->use_rotor_frame) {
             phase_voltage_sv *= park_transform;
@@ -409,8 +406,9 @@ void draw_space_vector_plot(const VizData& viz_data, const SimState& state,
         implot_central_line("Phase Voltage Space Vector",
                             phase_voltage_sv.real(), phase_voltage_sv.imag());
 
-        std::complex<Scalar> current_sv = to_complex<Scalar>(
-            kClarkeTransform2x3 * state.motor.phase_currents);
+        std::complex<Scalar> current_sv =
+            clarke_transform(state.motor.phase_currents);
+
         if (options->use_rotor_frame) {
             current_sv *= park_transform;
         }
@@ -418,8 +416,9 @@ void draw_space_vector_plot(const VizData& viz_data, const SimState& state,
         implot_central_line("Current Space Vector", current_sv.real(),
                             current_sv.imag());
 
-        std::complex<Scalar> normed_bEmf_sv = to_complex<Scalar>(
-            kClarkeTransform2x3 * state.motor.normalized_bEmfs);
+        std::complex<Scalar> normed_bEmf_sv =
+            clarke_transform(state.motor.normalized_bEmfs);
+
         if (options->use_rotor_frame) {
             normed_bEmf_sv *= park_transform;
         }

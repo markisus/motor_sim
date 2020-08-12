@@ -44,3 +44,5 @@ inline void init_motor_state(MotorState* motor) {
     motor->bEmfs.setZero();
     motor->normalized_bEmf_coeffs << 0.01, 0, 0, 0, 0;
 }
+
+

@@ -15,6 +15,9 @@ struct FocState {
     Scalar period = 1.0 / 10000; // sec, 10kHz
     Scalar timer = 0;
 
+    // input
+    Scalar desired_torque = 0.0;
+
     PiParams i_controller_params;
     PiContext iq_controller;
     PiContext id_controller;

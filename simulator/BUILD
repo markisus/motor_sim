@@ -40,6 +40,7 @@ cc_library(
         "clarke_transform.cpp"],
     deps = [
         "//third_party/eigen:eigen",
+        ":conversions",
         ":scalar",
     ]
 )
