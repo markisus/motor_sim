@@ -12,7 +12,7 @@ constexpr int kCommutationModeSixStep = 1;
 constexpr int kCommutationModeFOC = 2;
 
 struct FocState {
-    Scalar period = 1.0 / 1500; // sec, 1.5kHz
+    Scalar period = 1.0 / 10000; // sec, 10kHz
     Scalar timer = 0;
 
     PiParams i_controller_params;

@@ -82,9 +82,6 @@ cc_binary(
         "@com_github_google_googletest//:gtest_main",
     ])
     
-
-
-
 cc_library(
     name = "sim_state",
     hdrs = ["sim_state.h"],
@@ -103,6 +100,7 @@ cc_library(
         "//third_party/implot:implot",
         "//util:math_constants",
         "//util:rolling_buffer",
+        "//util:rotation",
         ":clarke_transform",
         ":conversions",
         ":motor_state",
@@ -134,6 +132,9 @@ cc_binary(
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",
         "//third_party/implot:implot",
+        "//util:math_constants",
+        "//util:rotation",
+        "//util:time",
         "//wrappers:sdl_context",
         "//wrappers:sdl_imgui",
         ":scalar",

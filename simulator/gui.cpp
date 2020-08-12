@@ -3,6 +3,7 @@
 #include "conversions.h"
 #include "scalar.h"
 #include "util/math_constants.h"
+#include "util/rotation.h"
 #include <absl/strings/str_format.h>
 #include <imgui.h>
 #include <implot.h>
@@ -173,12 +174,47 @@ void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
                                  const RollingBuffers& buffers) {
     ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
                                ImGuiCond_Always);
+
     ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
+
+    // This auto scroll implementation is janky
+    // it breaks the zooming functionality so it only activates half the time
+    // (see comment on can_trigger_auto_scroll)
+
+    // state variables for auto scroll
+    static float last_y_min = -10;
+    static float last_y_max = 10;
+    static float last_y_range = last_y_max - last_y_min;
+    static bool can_trigger_auto_scroll =
+        false; // hack: flips true and false to allow ImPlot library to win half
+               // the time when it's trying to update the zoom
+
+    // auto scroll
+    if (get_rolling_buffer_count(buffers.ctx) > 0 && can_trigger_auto_scroll) {
+        const int last_idx = get_rolling_buffer_back(buffers.ctx);
+        const Scalar last_angular_vel = buffers.rotor_angular_vel[last_idx];
+        if (last_angular_vel < last_y_min) {
+            ImPlot::SetNextPlotLimitsY(last_angular_vel,
+                                       last_angular_vel + last_y_range,
+                                       ImGuiCond_Always);
+        } else if (last_angular_vel > last_y_max) {
+            ImPlot::SetNextPlotLimitsY(last_angular_vel - last_y_range,
+                                       last_angular_vel, ImGuiCond_Always);
+        }
+    }
+    can_trigger_auto_scroll = !can_trigger_auto_scroll;
+
     if (ImPlot::BeginPlot("Rotor Angular Vel", "Seconds", "Radians / Sec",
                           ImVec2(kPlotWidth, kPlotHeight))) {
+
         ImPlot::PlotLine("", buffers.timestamps.data(),
                          buffers.rotor_angular_vel.data(), params.count,
                          params.begin, sizeof(Scalar));
+
+        const auto plot_limits = ImPlot::GetPlotLimits(0);
+        last_y_min = plot_limits.Y.Min;
+        last_y_max = plot_limits.Y.Max;
+        last_y_range = last_y_max - last_y_min;
         ImPlot::EndPlot();
     }
 }
@@ -203,11 +239,10 @@ void update_rolling_buffers(const Scalar time, const MotorState& motor,
 
         buffers->pwm_level[next_idx] = pwm.level;
 
+        // Project current onto qd axes
         {
-            const Scalar q_axis_angle = motor.electrical_angle - kPI / 2;
-            const Scalar cs = std::cos(-q_axis_angle);
-            const Scalar sn = std::sin(-q_axis_angle);
-            const std::complex<Scalar> park_transform{cs, sn};
+            const std::complex<Scalar> park_transform =
+                get_rotation(-motor.q_axis_electrical_angle);
             const std::complex<Scalar> current_qd =
                 park_transform *
                 to_complex<Scalar>(
@@ -245,17 +280,19 @@ void draw_control_plots(const RollingPlotParams& params,
                              buffers.pwm_duties[i].data(), params.count,
                              params.begin, sizeof(Scalar));
         }
-
+        ImPlot::PushStyleColor(ImPlotCol_Line,
+                               (uint32_t)ImColor(1.0f, 1.0f, 1.0f, 0.2));
         ImPlot::PlotLine("Level", buffers.timestamps.data(),
                          buffers.pwm_level.data(), params.count, params.begin,
                          sizeof(Scalar));
+        ImPlot::PopStyleColor();
 
         ImPlot::EndPlot();
     }
 
     ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
                                ImGuiCond_Always);
-
+    ImPlot::SetNextPlotLimitsY(-1, 1, ImGuiCond_Once);
     if (ImPlot::BeginPlot("Current Controller Errors", "Seconds", nullptr,
                           ImVec2(kPlotWidth, kPlotHeight))) {
         ImPlot::PlotLine("iq error", buffers.timestamps.data(),

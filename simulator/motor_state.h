@@ -1,13 +1,14 @@
 #pragma once
 
 #include "scalar.h"
+#include "util/math_constants.h"
 #include <Eigen/Dense>
 
 struct MotorState {
     // motor characteristics
     int num_pole_pairs = 4;
     Scalar rotor_inertia = 0.1; // moment of inertia
-    Scalar mechanical_to_electrical_offset = 0;
+    Scalar q_axis_offset = -kPI / 2;
     Scalar phase_inductance = 1e-3;
     Scalar phase_resistance = 1e-2;
     // normalized bEmf aka torque/current curve
@@ -20,6 +21,7 @@ struct MotorState {
     Scalar rotor_angular_vel = 0;
     Scalar rotor_angular_accel = 0;
     Scalar electrical_angle = 0;
+    Scalar q_axis_electrical_angle = q_axis_offset;
     Scalar torque = 0;
     Scalar neutral_voltage = 0;
     Eigen::Matrix<Scalar, 3, 1> pole_voltages =

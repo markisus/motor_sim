@@ -6,6 +6,7 @@
 #include "sine_series.h"
 #include "space_vector_modulation.h"
 #include "util/math_constants.h"
+#include "util/rotation.h"
 #include "util/time.h"
 #include "wrappers/sdl_context.h"
 #include "wrappers/sdl_imgui.h"
@@ -100,6 +101,8 @@ void apply_pole_voltages(const Scalar dt,
 
     motor->electrical_angle = motor->rotor_angle * motor->num_pole_pairs;
     motor->electrical_angle = std::fmod(motor->electrical_angle, 2 * kPI);
+    motor->q_axis_electrical_angle =
+        motor->electrical_angle + motor->q_axis_offset;
 }
 
 Eigen::Matrix<Scalar, 3, 1>
@@ -140,9 +143,7 @@ void step_foc(const MotorState& motor, FocState* foc_state) {
     const Scalar desired_current_q = 1.0;
 
     const Scalar q_axis_angle = motor.electrical_angle - kPI / 2;
-    const Scalar cs = std::cos(-q_axis_angle);
-    const Scalar sn = std::sin(-q_axis_angle);
-    const std::complex<Scalar> park_transform{cs, sn};
+    const std::complex<Scalar> park_transform = get_rotation(-q_axis_angle);
 
     const std::complex<Scalar> current_qd =
         park_transform *
@@ -205,7 +206,7 @@ int main(int argc, char* argv[]) {
         run_gui(viz_data, &viz_options, &state);
 
         state.foc.i_controller_params =
-            make_motor_pi_params(/*bandwidth=*/1000,
+            make_motor_pi_params(/*bandwidth=*/10000,
                                  /*resistance=*/state.motor.phase_resistance,
                                  /*inductance=*/state.motor.phase_inductance);
 
@@ -224,22 +225,27 @@ int main(int argc, char* argv[]) {
                         step_foc(state.motor, &state.foc);
                     }
 
+                    // assert the requested qd voltage with PWM
                     if (step_pwm_state(state.dt, &state.pwm)) {
-                        const Scalar q_axis_angle =
-                            state.motor.electrical_angle - kPI / 2;
-                        const Scalar cs = std::cos(q_axis_angle);
-                        const Scalar sn = std::sin(q_axis_angle);
-                        const std::complex<Scalar> inv_park_transform{cs, sn};
-                        std::complex<Scalar> voltage_ab =
+                        const std::complex<Scalar> inv_park_transform =
+                            get_rotation(state.motor.q_axis_electrical_angle);
+
+                        const std::complex<Scalar> voltage_ab =
                             inv_park_transform * state.foc.voltage_qd;
-                        // need to decouple (todo: investigate sign)
-                        voltage_ab += to_complex<Scalar>(
-                            (kClarkeTransform2x3 *
-                            state.motor.normalized_bEmfs)
-                                .head<2>() *
-                            state.motor.rotor_angular_vel);
-                        state.pwm.duties =
-                            get_pwm_duties(state.bus_voltage, voltage_ab);
+
+                        const std::complex<Scalar> existing_back_emf_ab =
+                            to_complex<Scalar>((kClarkeTransform2x3 *
+                                                state.motor.normalized_bEmfs)
+                                                   .head<2>() *
+                                               state.motor.rotor_angular_vel);
+
+                        // need to shift the applied voltage up to counteract
+                        // the existing back emf
+                        const std::complex<Scalar> corrected_voltage_ab =
+                            existing_back_emf_ab + voltage_ab;
+
+                        state.pwm.duties = get_pwm_duties(state.bus_voltage,
+                                                          corrected_voltage_ab);
                     }
 
                     state.gate.commanded = get_pwm_gate_command(state.pwm);
@@ -258,9 +264,6 @@ int main(int argc, char* argv[]) {
                 state.time += state.dt;
             }
         }
-
-        ImGui::ShowDemoWindow();
-        ImPlot::ShowDemoWindow();
 
         ImGui::Render();
         int display_w, display_h;

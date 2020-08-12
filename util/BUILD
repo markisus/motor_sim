@@ -11,3 +11,7 @@ cc_library(
 cc_library(
     name = "rolling_buffer",
     hdrs = ["rolling_buffer.h"])
+
+cc_library(
+    name = "rotation",
+    hdrs = ["rotation.h"])
