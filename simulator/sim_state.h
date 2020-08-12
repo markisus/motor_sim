@@ -12,7 +12,7 @@ constexpr int kCommutationModeSixStep = 1;
 constexpr int kCommutationModeFOC = 2;
 
 struct FocState {
-    Scalar period = 1.0 / 100; // sec, 100Hz
+    Scalar period = 1.0 / 1500; // sec, 1.5kHz
     Scalar timer = 0;
 
     PiParams i_controller_params;
@@ -26,9 +26,9 @@ struct FocState {
 struct SimState {
     Scalar time = 0;
     bool paused = false;
-    Scalar dt = 1.0 / 1000000; // sec, 1000kHz
+    Scalar dt = 1.0 / 1000000; // sec, 1MHz
     int step_multiplier = 5e3; // sec
-    Scalar gate_dead_time = 0; // sec
+    Scalar gate_dead_time = 2*dt; // sec
                                // time during commutation when gate is neither
                                // high nor low, to prevent shoot through current
     Scalar bus_voltage = 24;

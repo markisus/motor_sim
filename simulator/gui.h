@@ -21,6 +21,8 @@ struct RollingBuffers {
     std::array<Scalar, kNumRollingPts> rotor_angular_vel;
     std::array<Scalar, kNumRollingPts> pwm_level;
     std::array<std::array<Scalar, kNumRollingPts>, 3> pwm_duties;
+    std::array<Scalar, kNumRollingPts> current_q;
+    std::array<Scalar, kNumRollingPts> current_d;
     std::array<Scalar, kNumRollingPts> current_q_err;
     std::array<Scalar, kNumRollingPts> current_q_integral;
     std::array<Scalar, kNumRollingPts> current_d_err;

@@ -6,7 +6,7 @@
 struct MotorState {
     // motor characteristics
     int num_pole_pairs = 4;
-    Scalar rotor_inertia = 1; // moment of inertia
+    Scalar rotor_inertia = 0.1; // moment of inertia
     Scalar mechanical_to_electrical_offset = 0;
     Scalar phase_inductance = 1e-3;
     Scalar phase_resistance = 1e-2;
@@ -40,5 +40,5 @@ inline void init_motor_state(MotorState* motor) {
     motor->phase_voltages.setZero();
     motor->phase_currents.setZero();
     motor->bEmfs.setZero();
-    motor->normalized_bEmf_coeffs << 1, 0, 0, 0, 0;
+    motor->normalized_bEmf_coeffs << 0.01, 0, 0, 0, 0;
 }

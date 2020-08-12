@@ -157,19 +157,6 @@ void step_foc(const MotorState& motor, FocState* foc_state) {
                    foc_state->period, current_qd.imag(), 0);
 
     foc_state->voltage_qd = {voltage_q, voltage_d};
-
-    // const std::complex<Scalar> decoupling_qd =
-    //     park_transform *
-    //     to_complex<Scalar>(
-    //         (kClarkeTransform2x3 * motor.normalized_bEmfs).head<2>() *
-    //         motor.rotor_angular_vel);
-
-    // return voltage_qd * std::conj(park_transform);
-
-    // motor.pwm_state.duties = get_pwm_duties(bus_voltage, voltage_ab);
-
-    // printf("Setting duties to %f %f %f\n", motor.pwm_state.duties[0],
-    //        motor.pwm_state.duties[1], motor.pwm_state.duties[2]);
 }
 
 using namespace biro;
@@ -218,7 +205,7 @@ int main(int argc, char* argv[]) {
         run_gui(viz_data, &viz_options, &state);
 
         state.foc.i_controller_params =
-            make_motor_pi_params(/*bandwidth=*/10,
+            make_motor_pi_params(/*bandwidth=*/1000,
                                  /*resistance=*/state.motor.phase_resistance,
                                  /*inductance=*/state.motor.phase_inductance);
 
@@ -238,7 +225,6 @@ int main(int argc, char* argv[]) {
                     }
 
                     if (step_pwm_state(state.dt, &state.pwm)) {
-                        // establish the requested qd voltage (fast loop)
                         const Scalar q_axis_angle =
                             state.motor.electrical_angle - kPI / 2;
                         const Scalar cs = std::cos(q_axis_angle);
@@ -247,11 +233,11 @@ int main(int argc, char* argv[]) {
                         std::complex<Scalar> voltage_ab =
                             inv_park_transform * state.foc.voltage_qd;
                         // need to decouple (todo: investigate sign)
-                        // voltage_ab += to_complex<Scalar>(
-                        //     (kClarkeTransform2x3 *
-                        //     state.motor.normalized_bEmfs)
-                        //         .head<2>() *
-                        //     state.motor.rotor_angular_vel);
+                        voltage_ab += to_complex<Scalar>(
+                            (kClarkeTransform2x3 *
+                            state.motor.normalized_bEmfs)
+                                .head<2>() *
+                            state.motor.rotor_angular_vel);
                         state.pwm.duties =
                             get_pwm_duties(state.bus_voltage, voltage_ab);
                     }

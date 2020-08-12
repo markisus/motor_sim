@@ -203,6 +203,19 @@ void update_rolling_buffers(const Scalar time, const MotorState& motor,
 
         buffers->pwm_level[next_idx] = pwm.level;
 
+        {
+            const Scalar q_axis_angle = motor.electrical_angle - kPI / 2;
+            const Scalar cs = std::cos(-q_axis_angle);
+            const Scalar sn = std::sin(-q_axis_angle);
+            const std::complex<Scalar> park_transform{cs, sn};
+            const std::complex<Scalar> current_qd =
+                park_transform *
+                to_complex<Scalar>(
+                    (kClarkeTransform2x3 * motor.phase_currents).head<2>());
+            buffers->current_q[next_idx] = current_qd.real();
+            buffers->current_d[next_idx] = current_qd.imag();
+        }
+
         buffers->current_q_err[next_idx] = foc.iq_controller.err;
 
         buffers->current_q_integral[next_idx] = foc.iq_controller.integral;
@@ -252,6 +265,21 @@ void draw_control_plots(const RollingPlotParams& params,
         ImPlot::PlotLine("id error", buffers.timestamps.data(),
                          buffers.current_d_err.data(), params.count,
                          params.begin, sizeof(Scalar));
+        ImPlot::EndPlot();
+    }
+
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
+
+    if (ImPlot::BeginPlot("Current qd", "Seconds", nullptr,
+                          ImVec2(kPlotWidth, kPlotHeight))) {
+        ImPlot::PlotLine("iq", buffers.timestamps.data(),
+                         buffers.current_q.data(), params.count, params.begin,
+                         sizeof(Scalar));
+
+        ImPlot::PlotLine("id", buffers.timestamps.data(),
+                         buffers.current_d.data(), params.count, params.begin,
+                         sizeof(Scalar));
         ImPlot::EndPlot();
     }
 
