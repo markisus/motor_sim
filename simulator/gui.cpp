@@ -570,10 +570,6 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     ImGui::RadioButton("FOC", &sim_state->commutation_mode,
                        kCommutationModeFOC);
 
-    if (sim_state->commutation_mode == kCommutationModeSixStep) {
-        Slider("Phase Advance", &sim_state->six_step_phase_advance, -0.5, 0.5);
-    }
-
     if (sim_state->commutation_mode == kCommutationModeNone) {
         // manual controls
         ImGui::Text("Manual Command");
@@ -592,6 +588,14 @@ void run_gui(const VizData& viz_data, VizOptions* options,
             sim_state->gate.commanded[i] = (bool)current_command;
             ImGui::PopID();
         }
+    }
+
+    if (sim_state->commutation_mode == kCommutationModeSixStep) {
+        Slider("Phase Advance", &sim_state->six_step_phase_advance, -0.5, 0.5);
+    }
+
+    if (sim_state->commutation_mode == kCommutationModeFOC) {
+        Slider("Desired Torque", &sim_state->foc.desired_torque, -1.0, 1.0);
     }
 
     ImGui::End();

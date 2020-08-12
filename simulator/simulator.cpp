@@ -140,15 +140,19 @@ get_pole_voltages(const Scalar bus_voltage, const Scalar diode_active_voltage,
 }
 
 void step_foc(const MotorState& motor, FocState* foc_state) {
-    const Scalar desired_current_q = 1.0;
 
     const Scalar q_axis_angle = motor.electrical_angle - kPI / 2;
     const std::complex<Scalar> park_transform = get_rotation(-q_axis_angle);
 
+    const std::complex<Scalar> normed_bEmf_qd =
+        park_transform * clarke_transform(motor.normalized_bEmfs);
+
     const std::complex<Scalar> current_qd =
-        park_transform *
-        to_complex<Scalar>(
-            (kClarkeTransform2x3 * motor.phase_currents).head<2>());
+        park_transform * clarke_transform(motor.phase_currents);
+
+    // try to generate torque only along the q axis, even if there are d-axis harmonics present
+    // FIXME: What if the q axis torque function is 0? Is that even possible?
+    const Scalar desired_current_q = foc_state->desired_torque / normed_bEmf_qd.real();
 
     const Scalar voltage_q =
         pi_control(foc_state->i_controller_params, &foc_state->iq_controller,
