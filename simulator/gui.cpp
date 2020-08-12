@@ -197,7 +197,7 @@ void draw_torque_plot(const RollingPlotParams& params,
                       const RollingBuffers& buffers) {
     ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
                                ImGuiCond_Always);
-    ImPlot::SetNextPlotLimitsY(-10, 10, ImGuiCond_Once);
+    ImPlot::SetNextPlotLimitsY(-2, 2, ImGuiCond_Once);
     if (ImPlot::BeginPlot("Torque", "Seconds", "N . m",
                           ImVec2(kPlotWidth, kPlotHeight))) {
         ImPlot::PlotLine("", buffers.timestamps.data(), buffers.torque.data(),
