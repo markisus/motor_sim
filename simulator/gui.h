@@ -34,6 +34,7 @@ struct VizOptions {
     bool use_rotor_frame = true; // space vector viz
     float rolling_history = 1;   // sec
     std::array<bool, 3> coil_visible = {true, false, false};
+    bool advanced_motor_config = false;
 };
 
 struct VizData {

@@ -108,6 +108,7 @@ cc_library(
         ":pwm_state",
         ":scalar",
         ":sim_state",
+        ":sine_series",
         "@com_google_absl//absl/strings:str_format",
     ])
 

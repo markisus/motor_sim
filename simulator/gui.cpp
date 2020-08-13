@@ -2,11 +2,13 @@
 #include "clarke_transform.h"
 #include "conversions.h"
 #include "scalar.h"
+#include "sine_series.h"
 #include "util/math_constants.h"
 #include "util/rotation.h"
 #include <absl/strings/str_format.h>
 #include <imgui.h>
 #include <implot.h>
+#include <random>
 
 constexpr int kPlotHeight = 250; // sec
 constexpr int kPlotWidth = -1;   // sec
@@ -500,6 +502,15 @@ bool Slider(const char* label, Scalar* scalar, Scalar low, Scalar high) {
     return interacted;
 }
 
+bool ScaledSlider(const Scalar scale, const char* label, Scalar* scalar,
+                  Scalar low, Scalar high) {
+    float wrapped = *scalar * scale;
+    const bool interacted =
+        ImGui::SliderFloat(label, &wrapped, float(low), float(high));
+    *scalar = Scalar(wrapped) / scale;
+    return interacted;
+}
+
 void run_gui(const VizData& viz_data, VizOptions* options,
              SimState* sim_state) {
 
@@ -595,6 +606,12 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                                        &sim_state->motor.phase_inductance);
             order_of_magnitude_control("Phase Resistance",
                                        &sim_state->motor.phase_resistance);
+
+            if (ImGui::Button("Open Advanced Config")) {
+                options->advanced_motor_config = true;
+                ImGui::SetWindowFocus("Advanced Motor Config");
+            }
+
             ImGui::EndTabItem();
         }
 
@@ -645,4 +662,162 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     }
 
     ImGui::End();
+
+    if (options->advanced_motor_config) {
+        ImGui::Begin("Advanced Motor Config", &options->advanced_motor_config);
+        ImGui::Text("normed_bEmf(e) =  overal_scale * (a1 sin(e) + a3 sin(3e) "
+                    "+ a5 sin(5e) + a7 "
+                    "sin(7e) + a9 sin(9e))");
+
+        const auto to_gui_scale = [](const Eigen::Matrix<Scalar, 5, 1>& in) {
+            Eigen::Matrix<Scalar, 5, 1> out = in;
+            for (int i = 1; i < out.size(); ++i) {
+                out(i) /= in(0);
+            }
+            return out;
+        };
+
+        const auto from_gui_scale = [](const Eigen::Matrix<Scalar, 5, 1>& in) {
+            Eigen::Matrix<Scalar, 5, 1> out = in;
+            for (int i = 1; i < out.size(); ++i) {
+                out(i) *= in(0);
+            }
+            return out;
+        };
+
+        Eigen::Matrix<Scalar, 5, 1> gui_scale =
+            to_gui_scale(sim_state->motor.normalized_bEmf_coeffs);
+
+        ImGui::Text("Presets");
+        ImGui::SameLine();
+        if (ImGui::Button("Sine Wave")) {
+            gui_scale.tail<4>().setZero();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Trapezoid")) {
+            gui_scale(1) = 0.278;
+            gui_scale(2) = 0.119;
+            gui_scale(3) = 0.053;
+            gui_scale(4) = 0.029;
+        }
+
+        ScaledSlider(1000, "overall_scale * 1000", &gui_scale(0), 1, 500);
+
+        // additional harmonics
+        for (int i = 1; i < 5; ++i) {
+            Slider(absl::StrFormat("a%d", 2 * i + 1).c_str(), &gui_scale(i), 0,
+                   1);
+        }
+
+        sim_state->motor.normalized_bEmf_coeffs = from_gui_scale(gui_scale);
+
+        constexpr int kNumSamples = 1000;
+        static std::array<Scalar, kNumSamples> angles;
+        static std::array<Scalar, kNumSamples> samples;
+        for (int i = 0; i < kNumSamples; ++i) {
+            const Scalar angle = 2 * kPI * Scalar(i) / kNumSamples;
+            Eigen::Matrix<Scalar, 5, 1> odd_sine_series;
+            generate_odd_sine_series(5, angle, odd_sine_series.data());
+            samples[i] =
+                odd_sine_series.dot(sim_state->motor.normalized_bEmf_coeffs);
+            angles[i] = angle;
+        }
+
+        ImPlot::SetNextPlotLimitsX(0, 2 * kPI, ImGuiCond_Once);
+        ImPlot::SetNextPlotLimitsY(
+            -1.5 * sim_state->motor.normalized_bEmf_coeffs(0),
+            1.5 * sim_state->motor.normalized_bEmf_coeffs(0), ImGuiCond_Once);
+
+        if (ImPlot::BeginPlot("Normalized Back Emf", "Electrical Angle (rad)",
+                              "Volt . sec", ImVec2(kPlotWidth, kPlotHeight))) {
+            ImPlot::PlotLine("", angles.data(), samples.data(), angles.size());
+            ImPlot::EndPlot();
+        }
+
+        // convenience reference
+        auto& cogging_torque_map = sim_state->motor.cogging_torque_map;
+
+        if (ImGui::Button("Generate Random Cogging Torque Map")) {
+            std::random_device rd{};
+            std::mt19937 gen{rd()};
+            std::normal_distribution<> d{0, 1};
+
+            // cos terms are even idx
+            // sin terms are odd idx
+            std::array<Scalar, 12> fourier_coeffs;
+            // arbitrarily choose some frequencies that might be dominant in the
+            // cogging map, plus some fuding to make it look interesting
+            const int p = sim_state->motor.num_pole_pairs;
+            std::array<int, 6> fourier_frequencies{
+                1, p, p * 2 + 1, p * 3 + 2, p * 7 + 3, p * 10 + 4};
+
+            std::array<Scalar, 6> fourier_frequencies_scale{0.5, 1.5, 1.0,
+                                                            1.5, 0.5, 0.25};
+
+            for (int i = 0; i < 12; ++i) {
+                fourier_coeffs[i] = d(gen) * fourier_frequencies_scale[i / 2];
+            }
+
+            for (int i = 0; i < cogging_torque_map.size(); ++i) {
+                const Scalar progress = Scalar(i) / cogging_torque_map.size();
+                Scalar val = 0;
+                for (int n = 0; n < 6; ++n) {
+                    const Scalar k1 = fourier_coeffs[2 * n];
+                    const Scalar k2 = fourier_coeffs[2 * n + 1];
+                    const Scalar c =
+                        std::cos(progress * 2 * kPI * fourier_frequencies[n]);
+                    const Scalar s =
+                        std::sin(progress * 2 * kPI * fourier_frequencies[n]);
+                    val += k1 * c + k2 * s;
+                }
+                cogging_torque_map[i] = val;
+            }
+
+            // // the first entry must equal the last entry
+            // // so de-slope everything
+            // const Scalar slope =
+            //     (cogging_torque_map.back() - cogging_torque_map[0]) /
+            //     cogging_torque_map.size();
+            // for (int i = 0; i < cogging_torque_map.size(); ++i) {
+            //     cogging_torque_map[i] -= slope * i;
+            // }
+
+            // // the integral of all cogging torque needs to be zero for energy
+            // // conservation, and then scaled to a realistic max torque value
+            // Scalar avg = 0;
+            // for (int i = 0; i < cogging_torque_map.size(); ++i) {
+            //     avg += cogging_torque_map[i];
+            // }
+            // avg /= cogging_torque_map.size();
+
+            // // recenter
+            // for (int i = 0; i < cogging_torque_map.size(); ++i) {
+            //     cogging_torque_map[i] -= avg;
+            // }
+
+            // rescale
+            Scalar max_abs = 0;
+            for (int i = 0; i < cogging_torque_map.size(); ++i) {
+                max_abs = std::max(max_abs, std::abs(cogging_torque_map[i]));
+            }
+
+            for (int i = 0; i < cogging_torque_map.size(); ++i) {
+                cogging_torque_map[i] *= 0.01 / max_abs;
+            }
+        }
+
+        ImPlot::SetNextPlotLimitsX(0, cogging_torque_map.size(),
+                                   ImGuiCond_Once);
+
+        ImPlot::SetNextPlotLimitsY(-0.01, 0.01, ImGuiCond_Once);
+
+        if (ImPlot::BeginPlot("Cogging Torque", "encoder idx", "N . m",
+                              ImVec2(kPlotWidth, kPlotHeight))) {
+            ImPlot::PlotLine("", cogging_torque_map.data(),
+                             cogging_torque_map.size());
+            ImPlot::EndPlot();
+        }
+
+        ImGui::End();
+    }
 }

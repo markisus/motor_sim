@@ -15,7 +15,6 @@ struct MotorState {
     // odd coefficients of sine fourier expansion
     Eigen::Matrix<Scalar, 5, 1> normalized_bEmf_coeffs;
     std::array<Scalar, 3600> cogging_torque_map;
-    std::array<Scalar, 3600> stiction_torque_map;
 
     Scalar rotor_angle = 0;
     Scalar rotor_angular_vel = 0;
