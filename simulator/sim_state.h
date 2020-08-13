@@ -30,7 +30,7 @@ struct SimState {
     Scalar time = 0;
     bool paused = false;
     Scalar dt = 1.0 / 1000000; // sec, 1MHz
-    int step_multiplier = 5e3; // sec
+    int step_multiplier = 100; // sec
     Scalar gate_dead_time = 2*dt; // sec
                                // time during commutation when gate is neither
                                // high nor low, to prevent shoot through current

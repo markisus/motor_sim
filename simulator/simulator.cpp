@@ -150,9 +150,11 @@ void step_foc(const MotorState& motor, FocState* foc_state) {
     const std::complex<Scalar> current_qd =
         park_transform * clarke_transform(motor.phase_currents);
 
-    // try to generate torque only along the q axis, even if there are d-axis harmonics present
+    // try to generate torque only along the q axis, even if there are d-axis
+    // harmonics present
     // FIXME: What if the q axis torque function is 0? Is that even possible?
-    const Scalar desired_current_q = foc_state->desired_torque / normed_bEmf_qd.real();
+    const Scalar desired_current_q =
+        foc_state->desired_torque / normed_bEmf_qd.real();
 
     const Scalar voltage_q =
         pi_control(foc_state->i_controller_params, &foc_state->iq_controller,
@@ -205,7 +207,8 @@ int main(int argc, char* argv[]) {
 
         if (!state.paused) {
             update_rolling_buffers(state.time, state.motor, state.pwm,
-                                   state.foc, &viz_data.rolling_buffers);
+                                   state.gate, state.foc,
+                                   &viz_data.rolling_buffers);
         }
         run_gui(viz_data, &viz_options, &state);
 
