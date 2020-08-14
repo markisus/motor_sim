@@ -1,7 +1,7 @@
 #include "space_vector_modulation.h"
-#include "clarke_transform.h"
-#include "conversions.h"
 #include "global_debug.h"
+#include "util/clarke_transform.h"
+#include "util/conversions.h"
 #include "util/math_constants.h"
 #include <Eigen/Dense>
 

@@ -17,14 +17,15 @@ cc_library(
     deps = [
         ":scalar",
         "//util:time",
-    ])
+    ]
+)
 
 cc_library(
     name = "foc_state",
     hdrs = ["foc_state.h"],
     deps = [
         ":scalar",
-        "//controls:pi_control"
+        "//controls:pi_control",
     ]
 )
 
@@ -36,10 +37,11 @@ cc_library(
         "foc.cpp",
     ],
     deps = [
-        ":clarke_transform",
+        "//util:clarke_transform",
+        "//util:rotation",
+        "//util:conversions",
         ":foc_state",
         ":motor_state",
-        "//util:rotation"
     ]
 )
 
@@ -83,31 +85,6 @@ cc_library(
             "//util:math_constants",
     ])
 
-cc_library(
-    name = "conversions",
-    hdrs = ["conversions.h"])
-
-cc_library(
-    name = "clarke_transform",
-    hdrs = ["clarke_transform.h"],
-    srcs = [
-        "clarke_transform.h",
-        "clarke_transform.cpp"],
-    deps = [
-        "//third_party/eigen:eigen",
-        ":conversions",
-        ":scalar",
-    ]
-)
-
-cc_binary(
-    name = "clarke_transform_test",
-    srcs = ["clarke_transform_test.cpp"],
-    deps = [
-        ":clarke_transform",
-        "@com_github_google_googletest//:gtest_main",
-    ]
-)
 
 cc_library(
     name = "space_vector_modulation",
@@ -119,8 +96,8 @@ cc_library(
         "//global_debug:global_debug",
         "//third_party/eigen:eigen",
         "//util:math_constants",
-        ":clarke_transform",
-        ":conversions",
+        "//util:clarke_transform",
+        "//util:conversions",
         ":scalar",
     ]
 )
@@ -132,7 +109,7 @@ cc_binary(
         "//global_debug:global_debug",
         "//util:math_constants",
         ":pwm_state",
-        ":conversions",
+        "//util:conversions",
         ":scalar",
         ":space_vector_modulation",
         "@com_github_google_googletest//:gtest_main",
@@ -157,8 +134,8 @@ cc_library(
         "//util:math_constants",
         "//util:rolling_buffer",
         "//util:rotation",
-        ":clarke_transform",
-        ":conversions",
+        "//util:clarke_transform",
+        "//util:conversions",
         ":motor_state",
         ":pwm_state",
         ":foc_state",
@@ -182,23 +159,23 @@ cc_binary(
     name = "simulator",
     srcs = ["simulator.cpp"],
     deps = [
-        ":clarke_transform",
-        ":conversions",
-        ":foc",
-        ":six_step",
-        ":gui",
-        ":motor",
         "//controls:pi_control",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",
         "//third_party/implot:implot",
+        "//util:clarke_transform",
         "//util:math_constants",
+        "//util:conversions",
         "//util:rotation",
         "//util:time",
         "//wrappers:sdl_context",
         "//wrappers:sdl_imgui",
+        ":foc",
+        ":gui",
+        ":motor",
         ":scalar",
+        ":six_step",
         ":sine_series",
         ":space_vector_modulation",
         "@com_google_absl//absl/strings:str_format",

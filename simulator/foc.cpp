@@ -1,5 +1,5 @@
 #include "foc.h"
-#include "clarke_transform.h"
+#include "util/clarke_transform.h"
 #include "util/rotation.h"
 
 std::complex<Scalar>
