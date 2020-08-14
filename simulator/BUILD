@@ -6,6 +6,8 @@ LINKOPTS = select({
     "@bazel_tools//src/conditions:windows": [],
     "//conditions:default": ["-lstdc++fs"],})
 
+package(default_visibility = ["//visibility:public"])
+
 cc_library(
     name = "gate_state",
     hdrs = ["gate_state.h"],
@@ -21,37 +23,12 @@ cc_library(
 )
 
 cc_library(
-    name = "foc_state",
-    hdrs = ["foc_state.h"],
-    deps = [
-        "//config:scalar",
-        "//controls:pi_control",
-    ]
-)
-
-cc_library(
-    name = "foc",
-    hdrs = ["foc.h"],
-    srcs = [
-        "foc.h",
-        "foc.cpp",
-    ],
-    deps = [
-        "//util:clarke_transform",
-        "//util:rotation",
-        "//util:conversions",
-        ":foc_state",
-        ":motor_state",
-    ]
-)
-
-cc_library(
     name = "motor_state",
     hdrs = ["motor_state.h"],
     deps = [
         "//config:scalar",
         "//util:math_constants",
-    ]
+    ],
 )
 
 cc_library(
@@ -72,7 +49,6 @@ cc_library(
     ],
     copts = COPTS,
 )
-
 
 cc_library(
     name = "space_vector_modulation",
@@ -117,6 +93,7 @@ cc_library(
     hdrs = ["gui.h"],
     deps = [
         "//config:scalar",
+        "//controls:foc_state",
         "//controls:pi_control",
         "//third_party/imgui:imgui_base",
         "//third_party/implot:implot",
@@ -126,7 +103,6 @@ cc_library(
         "//util:rolling_buffer",
         "//util:rotation",
         "//util:sine_series",
-        ":foc_state",
         ":motor_state",
         ":pwm_state",
         ":sim_state",
@@ -139,6 +115,7 @@ cc_binary(
     srcs = ["simulator.cpp"],
     deps = [
         "//config:scalar",
+        "//controls:foc",
         "//controls:pi_control",
         "//controls:six_step",
         "//third_party/eigen:eigen",
@@ -153,7 +130,6 @@ cc_binary(
         "//util:time",
         "//wrappers:sdl_context",
         "//wrappers:sdl_imgui",
-        ":foc",
         ":gui",
         ":motor",
         ":space_vector_modulation",

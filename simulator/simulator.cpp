@@ -1,7 +1,7 @@
 #include "config/scalar.h"
+#include "controls/foc.h"
 #include "controls/pi_control.h"
 #include "controls/six_step.h"
-#include "foc.h"
 #include "gui.h"
 #include "motor.h"
 #include "space_vector_modulation.h"

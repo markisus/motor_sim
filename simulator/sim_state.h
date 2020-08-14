@@ -1,11 +1,11 @@
 #pragma once
 
+#include "config/scalar.h"
+#include "controls/foc_state.h"
 #include "controls/pi_control.h"
 #include "gate_state.h"
 #include "motor_state.h"
-#include "foc_state.h"
 #include "pwm_state.h"
-#include "config/scalar.h"
 #include <Eigen/Dense>
 
 constexpr int kCommutationModeNone = 0;
@@ -48,4 +48,3 @@ struct SimState {
 };
 
 inline void init_sim_state(SimState* state) { init_motor_state(&state->motor); }
-

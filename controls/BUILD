@@ -27,3 +27,27 @@ cc_library(
     ]
 )
 
+cc_library(
+    name = "foc_state",
+    hdrs = ["foc_state.h"],
+    deps = [
+        "//config:scalar",
+        ":pi_control",
+    ]
+)
+
+cc_library(
+    name = "foc",
+    hdrs = ["foc.h"],
+    srcs = [
+        "foc.h",
+        "foc.cpp",
+    ],
+    deps = [
+        "//simulator:motor_state",
+        "//util:clarke_transform",
+        "//util:conversions",
+        "//util:rotation",
+        ":foc_state",
+    ]
+)
