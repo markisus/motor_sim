@@ -11,7 +11,7 @@ struct MotorState {
     Scalar rotor_inertia = 0.1; // moment of inertia
     Scalar q_axis_offset = -kPI / 2;
     Scalar phase_inductance = 1e-3;
-    Scalar phase_resistance = 1e-2;
+    Scalar phase_resistance = 1.0;
     // normalized bEmf aka torque/current curve
     // odd coefficients of sine fourier expansion
     Eigen::Matrix<Scalar, 5, 1> normed_bEmf_coeffs;
