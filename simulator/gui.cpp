@@ -593,8 +593,8 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                                 &sim_state->foc_non_sinusoidal_drive_mode);
                 ImGui::Checkbox("Cogging Compensation",
                                 &sim_state->foc_use_cogging_compensation);
-		ImGui::Checkbox("Back EMF Compensation",
-                                &sim_state->foc_use_bEmf_compensation);
+		ImGui::Checkbox("qd Decoupling",
+                                &sim_state->foc_use_qd_decoupling);
             }
 
             ImGui::EndTabItem();

@@ -49,7 +49,7 @@ struct SimState {
 
     // foc options
     Scalar foc_desired_torque = 0.0;
-    bool foc_use_bEmf_compensation = false;
+    bool foc_use_qd_decoupling = false;
     bool foc_use_cogging_compensation = false;
     bool foc_non_sinusoidal_drive_mode = false;
 

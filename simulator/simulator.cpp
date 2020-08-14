@@ -280,7 +280,7 @@ int main(int argc, char* argv[]) {
                         std::complex<Scalar> voltage_ab =
                             inv_park_transform * state.foc.voltage_qd;
 
-                        if (state.foc_use_bEmf_compensation) {
+                        if (state.foc_use_qd_decoupling) {
                             const std::complex<Scalar> existing_back_emf_ab =
                                 clarke_transform(state.motor.normalized_bEmfs) *
                                 state.motor.rotor_angular_vel;
