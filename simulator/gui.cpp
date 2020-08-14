@@ -1,5 +1,5 @@
 #include "gui.h"
-#include "scalar.h"
+#include "config/scalar.h"
 #include "sine_series.h"
 #include "util/clarke_transform.h"
 #include "util/conversions.h"

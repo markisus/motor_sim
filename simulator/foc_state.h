@@ -1,7 +1,7 @@
 #pragma once
 
 #include "controls/pi_control.h"
-#include "scalar.h"
+#include "config/scalar.h"
 #include <complex>
 
 struct FocState {

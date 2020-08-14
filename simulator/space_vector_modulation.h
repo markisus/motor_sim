@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scalar.h"
+#include "config/scalar.h"
 #include <array>
 #include <complex>
 

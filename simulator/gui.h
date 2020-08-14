@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scalar.h"
+#include "config/scalar.h"
 #include "sim_state.h"
 #include "util/rolling_buffer.h"
 #include <array>

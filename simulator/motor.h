@@ -1,8 +1,8 @@
 #pragma once
 
+#include "config/scalar.h"
 #include "controls/pi_control.h"
 #include "motor_state.h"
-#include "scalar.h"
 #include <Eigen/Dense>
 
 PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,

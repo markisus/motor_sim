@@ -5,7 +5,7 @@
 #include "motor_state.h"
 #include "foc_state.h"
 #include "pwm_state.h"
-#include "scalar.h"
+#include "config/scalar.h"
 #include <Eigen/Dense>
 
 constexpr int kCommutationModeNone = 0;

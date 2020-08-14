@@ -9,13 +9,13 @@ LINKOPTS = select({
 cc_library(
     name = "gate_state",
     hdrs = ["gate_state.h"],
-    deps = [":scalar"])
+    deps = ["//config:scalar"])
 
 cc_library(
     name = "pwm_state",
     hdrs = ["pwm_state.h"],
     deps = [
-        ":scalar",
+        "//config:scalar",
         "//util:time",
     ]
 )
@@ -24,7 +24,7 @@ cc_library(
     name = "foc_state",
     hdrs = ["foc_state.h"],
     deps = [
-        ":scalar",
+        "//config:scalar",
         "//controls:pi_control",
     ]
 )
@@ -49,7 +49,7 @@ cc_library(
     name = "motor_state",
     hdrs = ["motor_state.h"],
     deps = [
-        ":scalar",
+        "//config:scalar",
         "//util:math_constants",
     ]
 )
@@ -64,26 +64,14 @@ cc_library(
         "motor.cpp",
     ],
     deps = [
-        ":motor_state",
-        ":scalar",
-        ":sine_series",
+        "//config:scalar",
         "//controls:pi_control",
         "//third_party/eigen:eigen",
+        ":motor_state",
+        ":sine_series",
     ],
     copts = COPTS,
 )
-
-cc_library(
-    name = "six_step",
-    hdrs = ["six_step.h"],
-    srcs = [
-        "six_step.h",
-        "six_step.cpp",
-
-    ],
-    deps = [":scalar",
-            "//util:math_constants",
-    ])
 
 
 cc_library(
@@ -98,7 +86,7 @@ cc_library(
         "//util:math_constants",
         "//util:clarke_transform",
         "//util:conversions",
-        ":scalar",
+        "//config:scalar",
     ]
 )
 
@@ -106,11 +94,11 @@ cc_binary(
     name = "space_vector_modulation_test",
     srcs = ["space_vector_modulation_test.cpp"],
     deps = [
+        "//config:scalar",
         "//global_debug:global_debug",
+        "//util:conversions",
         "//util:math_constants",
         ":pwm_state",
-        "//util:conversions",
-        ":scalar",
         ":space_vector_modulation",
         "@com_github_google_googletest//:gtest_main",
     ])
@@ -128,45 +116,44 @@ cc_library(
     srcs = ["gui.cpp"],
     hdrs = ["gui.h"],
     deps = [
+        "//config:scalar",
         "//controls:pi_control",
         "//third_party/imgui:imgui_base",
         "//third_party/implot:implot",
+        "//util:clarke_transform",
+        "//util:conversions",
         "//util:math_constants",
         "//util:rolling_buffer",
         "//util:rotation",
-        "//util:clarke_transform",
-        "//util:conversions",
+        ":foc_state",
         ":motor_state",
         ":pwm_state",
-        ":foc_state",
-        ":scalar",
         ":sim_state",
         ":sine_series",
         "@com_google_absl//absl/strings:str_format",
     ])
 
-cc_library(
-    name = "scalar",
-    hdrs = ["scalar.h"])
 
 cc_library(
     name = "pi",
     hdrs = ["pi.h"],
-    deps = [":scalar"]
+    deps = ["//config:scalar"]
 )
 
 cc_binary(
     name = "simulator",
     srcs = ["simulator.cpp"],
     deps = [
+        "//config:scalar",
         "//controls:pi_control",
+        "//controls:six_step",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",
         "//third_party/implot:implot",
         "//util:clarke_transform",
-        "//util:math_constants",
         "//util:conversions",
+        "//util:math_constants",
         "//util:rotation",
         "//util:time",
         "//wrappers:sdl_context",
@@ -174,8 +161,6 @@ cc_binary(
         ":foc",
         ":gui",
         ":motor",
-        ":scalar",
-        ":six_step",
         ":sine_series",
         ":space_vector_modulation",
         "@com_google_absl//absl/strings:str_format",

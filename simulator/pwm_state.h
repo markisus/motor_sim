@@ -1,6 +1,6 @@
 #pragma once
 
-#include "scalar.h"
+#include "config/scalar.h"
 #include "util/time.h"
 #include <array>
 

@@ -9,5 +9,21 @@ cc_library(
     hdrs = ["pi_control.h"],
     srcs = ["pi_control.cpp",
             "pi_control.h"],
+    deps = ["//config:scalar"],
     copts = COPTS,
 )
+
+cc_library(
+    name = "six_step",
+    hdrs = ["six_step.h"],
+    srcs = [
+        "six_step.h",
+        "six_step.cpp",
+
+    ],
+    deps = [
+        "//config:scalar",
+        "//util:math_constants",
+    ]
+)
+

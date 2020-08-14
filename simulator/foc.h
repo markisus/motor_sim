@@ -1,8 +1,8 @@
 #pragma once
 
+#include "config/scalar.h"
 #include "foc_state.h"
 #include "motor_state.h"
-#include "scalar.h"
 #include <complex>
 
 std::complex<Scalar>
