@@ -9,20 +9,6 @@ LINKOPTS = select({
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "gate_state",
-    hdrs = ["gate_state.h"],
-    deps = ["//config:scalar"])
-
-cc_library(
-    name = "pwm_state",
-    hdrs = ["pwm_state.h"],
-    deps = [
-        "//config:scalar",
-        "//util:time",
-    ]
-)
-
-cc_library(
     name = "motor_state",
     hdrs = ["motor_state.h"],
     deps = [
@@ -51,39 +37,10 @@ cc_library(
 )
 
 cc_library(
-    name = "space_vector_modulation",
-    hdrs = ["space_vector_modulation.h"],
-    srcs = [
-        "space_vector_modulation.cpp",
-        "space_vector_modulation.h"],
-    deps = [
-        "//global_debug:global_debug",
-        "//third_party/eigen:eigen",
-        "//util:math_constants",
-        "//util:clarke_transform",
-        "//util:conversions",
-        "//config:scalar",
-    ]
-)
-
-cc_binary(
-    name = "space_vector_modulation_test",
-    srcs = ["space_vector_modulation_test.cpp"],
-    deps = [
-        "//config:scalar",
-        "//global_debug:global_debug",
-        "//util:conversions",
-        "//util:math_constants",
-        ":pwm_state",
-        ":space_vector_modulation",
-        "@com_github_google_googletest//:gtest_main",
-    ])
-    
-cc_library(
     name = "sim_state",
     hdrs = ["sim_state.h"],
     deps = [
-        ":gate_state",
+        "//board:gate_state",
         "//third_party/eigen:eigen"]
 )
 
@@ -92,6 +49,8 @@ cc_library(
     srcs = ["gui.cpp"],
     hdrs = ["gui.h"],
     deps = [
+        "//board:pwm_state",
+        "//board:board_state",
         "//config:scalar",
         "//controls:foc_state",
         "//controls:pi_control",
@@ -104,7 +63,6 @@ cc_library(
         "//util:rotation",
         "//util:sine_series",
         ":motor_state",
-        ":pwm_state",
         ":sim_state",
         "@com_google_absl//absl/strings:str_format",
     ])
@@ -114,10 +72,12 @@ cc_binary(
     name = "simulator",
     srcs = ["simulator.cpp"],
     deps = [
+        "//board:board_state",
         "//config:scalar",
         "//controls:foc",
         "//controls:pi_control",
         "//controls:six_step",
+        "//controls:space_vector_modulation",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",
         "//third_party/imgui:imgui_sdl",
@@ -132,7 +92,6 @@ cc_binary(
         "//wrappers:sdl_imgui",
         ":gui",
         ":motor",
-        ":space_vector_modulation",
         "@com_google_absl//absl/strings:str_format",
     ],
     copts = COPTS, # need cpp17 to avoid eigen weirdness

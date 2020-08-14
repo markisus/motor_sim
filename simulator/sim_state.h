@@ -1,11 +1,10 @@
 #pragma once
 
+#include "board/board_state.h"
 #include "config/scalar.h"
 #include "controls/foc_state.h"
 #include "controls/pi_control.h"
-#include "gate_state.h"
 #include "motor_state.h"
-#include "pwm_state.h"
 #include <Eigen/Dense>
 
 constexpr int kCommutationModeNone = 0;
@@ -17,34 +16,26 @@ struct SimState {
     bool paused = false;
     Scalar dt = 1.0 / 1000000; // sec, 1MHz
     int step_multiplier = 100; // sec
-    Scalar gate_dead_time =
-        2 * dt; // sec
-                // time during commutation when gate is neither
-                // high nor low, to prevent shoot through current
-    Scalar load_torque = 0;
-    Scalar bus_voltage = 24;
-    Scalar diode_active_voltage = 1;    // voltage drop,
-                                        // which develops current flows across
-                                        // flyback diode
-    Scalar diode_active_current = 1e-3; // current,
-                                        // above which diode develops the
-                                        // v_diode_active voltage
 
+    Scalar load_torque = 0;
+
+    BoardState board;
     MotorState motor;
-    PwmState pwm;
+
     int commutation_mode = kCommutationModeNone;
 
-    // six step options
+    // six step state
     Scalar six_step_phase_advance = 0; // proportion of a cycle (0 to 1)
 
-    // foc options
+    // foc state
     Scalar foc_desired_torque = 0.0;
     bool foc_use_qd_decoupling = false;
     bool foc_use_cogging_compensation = false;
     bool foc_non_sinusoidal_drive_mode = false;
-
     FocState foc;
-    GateState gate;
 };
 
-inline void init_sim_state(SimState* state) { init_motor_state(&state->motor); }
+inline void init_sim_state(SimState* state) {
+    init_motor_state(&state->motor);
+    state->board.gate_dead_time = 2 * state->dt;
+}

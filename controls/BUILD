@@ -51,3 +51,32 @@ cc_library(
         ":foc_state",
     ]
 )
+
+cc_library(
+    name = "space_vector_modulation",
+    hdrs = ["space_vector_modulation.h"],
+    srcs = [
+        "space_vector_modulation.cpp",
+        "space_vector_modulation.h"],
+    deps = [
+        "//global_debug:global_debug",
+        "//third_party/eigen:eigen",
+        "//util:math_constants",
+        "//util:clarke_transform",
+        "//util:conversions",
+        "//config:scalar",
+    ]
+)
+
+cc_binary(
+    name = "space_vector_modulation_test",
+    srcs = ["space_vector_modulation_test.cpp"],
+    deps = [
+        "//config:scalar",
+        "//global_debug:global_debug",
+        "//util:conversions",
+        "//util:math_constants",
+        "//simulator:pwm_state",
+        ":space_vector_modulation",
+        "@com_github_google_googletest//:gtest_main",
+    ])

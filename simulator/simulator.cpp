@@ -2,9 +2,9 @@
 #include "controls/foc.h"
 #include "controls/pi_control.h"
 #include "controls/six_step.h"
+#include "controls/space_vector_modulation.h"
 #include "gui.h"
 #include "motor.h"
-#include "space_vector_modulation.h"
 #include "util/clarke_transform.h"
 #include "util/conversions.h"
 #include "util/math_constants.h"
@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
         wrappers::sdl_imgui_newframe(sdl_context.window_);
 
         if (!state.paused) {
-            update_rolling_buffers(state.time, state.motor, state.pwm,
-                                   state.gate, state.foc,
+            update_rolling_buffers(state.time, state.motor, state.board.pwm,
+                                   state.board.gate, state.foc,
                                    &viz_data.rolling_buffers);
         }
         run_gui(viz_data, &viz_options, &state);
@@ -73,11 +73,12 @@ int main(int argc, char* argv[]) {
 
         if (!state.paused) {
             for (int i = 0; i < state.step_multiplier; ++i) {
-                const bool new_pwm_cycle = step_pwm_state(state.dt, &state.pwm);
+                const bool new_pwm_cycle =
+                    step_pwm_state(state.dt, &state.board.pwm);
 
                 // update relevant commutation modes
                 if (state.commutation_mode == kCommutationModeSixStep) {
-                    state.gate.commanded =
+                    state.board.gate.commanded =
                         six_step_commutate(state.motor.electrical_angle,
                                            state.six_step_phase_advance);
                 }
@@ -122,19 +123,21 @@ int main(int argc, char* argv[]) {
                             voltage_ab += existing_back_emf_ab;
                         }
 
-                        state.pwm.duties =
-                            get_pwm_duties(state.bus_voltage, voltage_ab);
+                        state.board.pwm.duties =
+                            get_pwm_duties(state.board.bus_voltage, voltage_ab);
                     }
 
-                    state.gate.commanded = get_pwm_gate_command(state.pwm);
+                    state.board.gate.commanded =
+                        get_pwm_gate_command(state.board.pwm);
                 }
 
                 // step motor
-                update_gate_state(state.gate_dead_time, state.dt, &state.gate);
+                update_gate_state(state.board.gate_dead_time, state.dt,
+                                  &state.board.gate);
 
                 const auto pole_voltages = get_pole_voltages(
-                    state.bus_voltage, state.diode_active_voltage,
-                    state.diode_active_current, state.gate.actual,
+                    state.board.bus_voltage, state.board.diode_active_voltage,
+                    state.board.diode_active_current, state.board.gate.actual,
                     state.motor.phase_currents);
 
                 step_motor(state.dt, state.load_torque, pole_voltages,
