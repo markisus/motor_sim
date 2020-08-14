@@ -56,7 +56,7 @@ std::array<bool, 3> six_step_commutate(const Scalar electrical_angle,
             get_commutation_state(progress + phase_advance - 2.0 / 3)};
 }
 
-void step_motor(const Scalar dt,
+void step_motor(const Scalar dt, const Scalar load_torque,
                 const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
                 MotorState* motor) {
 
@@ -96,8 +96,8 @@ void step_motor(const Scalar dt,
     const Scalar cogging_torque =
         motor->cogging_torque_map[int(motor->encoder_position)];
 
-    motor->torque =
-        motor->phase_currents.dot(motor->normalized_bEmfs) + cogging_torque;
+    motor->torque = motor->phase_currents.dot(motor->normalized_bEmfs) +
+                    cogging_torque + load_torque;
 
     motor->rotor_angular_accel = motor->torque / motor->rotor_inertia;
     motor->rotor_angular_vel += motor->rotor_angular_accel * dt;
@@ -302,7 +302,8 @@ int main(int argc, char* argv[]) {
                     state.diode_active_current, state.gate.actual,
                     state.motor.phase_currents);
 
-                step_motor(state.dt, pole_voltages, &state.motor);
+                step_motor(state.dt, state.load_torque, pole_voltages,
+                           &state.motor);
 
                 state.time += state.dt;
             }

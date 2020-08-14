@@ -593,15 +593,17 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                                 &sim_state->foc_non_sinusoidal_drive_mode);
                 ImGui::Checkbox("Cogging Compensation",
                                 &sim_state->foc_use_cogging_compensation);
-		ImGui::Checkbox("qd Decoupling",
+                ImGui::Checkbox("qd Decoupling",
                                 &sim_state->foc_use_qd_decoupling);
             }
 
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Board Parameters")) {
+        if (ImGui::BeginTabItem("System Parameters")) {
             Slider("Bus Voltage", &sim_state->bus_voltage, 1.0, 120);
+            Slider("Load Torque", &sim_state->load_torque, -1.0, 1.0);
+
             Slider("Diode Active Voltage", &sim_state->diode_active_voltage,
                    0.0, 1.0);
 

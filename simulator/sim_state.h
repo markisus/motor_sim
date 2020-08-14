@@ -32,6 +32,7 @@ struct SimState {
         2 * dt; // sec
                 // time during commutation when gate is neither
                 // high nor low, to prevent shoot through current
+    Scalar load_torque = 0;
     Scalar bus_voltage = 24;
     Scalar diode_active_voltage = 1;    // voltage drop,
                                         // which develops current flows across
