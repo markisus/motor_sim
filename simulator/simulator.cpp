@@ -76,6 +76,12 @@ int main(int argc, char* argv[]) {
                 std::array<bool, 3> gate_command = {};
 
                 // update relevant commutation modes
+                if (state.commutation_mode == kCommutationModeManual) {
+                    // maintain the existing the gate command
+                    // which has probably been set from the GUI
+                    gate_command = state.board.gate.commanded;
+                }
+
                 if (state.commutation_mode == kCommutationModeSixStep) {
                     gate_command =
                         six_step_commutate(state.motor.electrical_angle,
@@ -87,9 +93,9 @@ int main(int argc, char* argv[]) {
                                        &state.foc.timer)) {
                         Scalar desired_torque = state.foc_desired_torque;
                         if (state.foc_use_cogging_compensation) {
-                            desired_torque -=
-                                state.motor.cogging_torque_map[int(
-                                    state.motor.encoder_position)];
+                            desired_torque -= interp_cogging_torque(
+                                state.motor.encoder_position,
+                                state.motor.cogging_torque_map);
                         }
 
                         std::complex<Scalar> desired_current_qd;

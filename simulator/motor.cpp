@@ -55,8 +55,8 @@ void step_motor(const Scalar dt, const Scalar load_torque,
         motor->cogging_torque_map.size() *
         std::clamp<Scalar>(motor->rotor_angle / (2 * kPI), 0.0, 1.0);
 
-    const Scalar cogging_torque =
-        motor->cogging_torque_map[int(motor->encoder_position)];
+    const Scalar cogging_torque = interp_cogging_torque(
+        motor->encoder_position, motor->cogging_torque_map);
 
     motor->torque = motor->phase_currents.dot(motor->normed_bEmfs) +
                     cogging_torque + load_torque;

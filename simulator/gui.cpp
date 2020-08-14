@@ -750,7 +750,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     if (ImGui::BeginTabBar("##Options")) {
         if (ImGui::BeginTabItem("Commutation Control")) {
             ImGui::RadioButton("Manual", &sim_state->commutation_mode,
-                               kCommutationModeNone);
+                               kCommutationModeManual);
             ImGui::SameLine();
             ImGui::RadioButton("Six Step", &sim_state->commutation_mode,
                                kCommutationModeSixStep);
@@ -759,7 +759,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                                kCommutationModeFOC);
 
             ImGui::NewLine();
-            if (sim_state->commutation_mode == kCommutationModeNone) {
+            if (sim_state->commutation_mode == kCommutationModeManual) {
                 // manual controls
                 ImGui::Text("Manual Command");
                 for (int i = 0; i < 3; ++i) {

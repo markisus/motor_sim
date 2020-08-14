@@ -7,7 +7,7 @@
 #include "motor_state.h"
 #include <Eigen/Dense>
 
-constexpr int kCommutationModeNone = 0;
+constexpr int kCommutationModeManual = 0;
 constexpr int kCommutationModeSixStep = 1;
 constexpr int kCommutationModeFOC = 2;
 
@@ -22,7 +22,7 @@ struct SimState {
     BoardState board;
     MotorState motor;
 
-    int commutation_mode = kCommutationModeNone;
+    int commutation_mode = kCommutationModeManual;
 
     // six step state
     Scalar six_step_phase_advance = 0; // proportion of a cycle (0 to 1)
