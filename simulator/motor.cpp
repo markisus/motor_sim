@@ -1,5 +1,5 @@
 #include "motor.h"
-#include "sine_series.h"
+#include "util/sine_series.h"
 
 PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
                               Scalar inductance) {

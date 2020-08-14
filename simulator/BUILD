@@ -67,8 +67,8 @@ cc_library(
         "//config:scalar",
         "//controls:pi_control",
         "//third_party/eigen:eigen",
+        "//util:sine_series",
         ":motor_state",
-        ":sine_series",
     ],
     copts = COPTS,
 )
@@ -125,20 +125,14 @@ cc_library(
         "//util:math_constants",
         "//util:rolling_buffer",
         "//util:rotation",
+        "//util:sine_series",
         ":foc_state",
         ":motor_state",
         ":pwm_state",
         ":sim_state",
-        ":sine_series",
         "@com_google_absl//absl/strings:str_format",
     ])
 
-
-cc_library(
-    name = "pi",
-    hdrs = ["pi.h"],
-    deps = ["//config:scalar"]
-)
 
 cc_binary(
     name = "simulator",
@@ -155,40 +149,16 @@ cc_binary(
         "//util:conversions",
         "//util:math_constants",
         "//util:rotation",
+        "//util:sine_series",
         "//util:time",
         "//wrappers:sdl_context",
         "//wrappers:sdl_imgui",
         ":foc",
         ":gui",
         ":motor",
-        ":sine_series",
         ":space_vector_modulation",
         "@com_google_absl//absl/strings:str_format",
     ],
     copts = COPTS, # need cpp17 to avoid eigen weirdness
 )
 
-cc_binary(
-    name = "sine_series_benchmark",
-    srcs = ["sine_series_benchmark.cpp"],
-    deps = [
-        ":sine_series",
-        "//third_party/eigen:eigen",
-        "@com_github_google_benchmark//:benchmark_main",
-    ],
-)
-
-cc_library(
-    name = "sine_series",
-    srcs = ["sine_series.h"],
-    hdrs = ["sine_series.h"],
-)
-
-cc_binary(
-    name = "sine_series_test",
-    srcs = ["sine_series_test.cpp"],
-    deps = [
-        ":sine_series",
-        "@com_github_google_googletest//:gtest_main",
-    ],
-)

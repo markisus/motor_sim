@@ -42,3 +42,28 @@ cc_binary(
     ]
 )
 
+
+cc_binary(
+    name = "sine_series_benchmark",
+    srcs = ["sine_series_benchmark.cpp"],
+    deps = [
+        ":sine_series",
+        "//third_party/eigen:eigen",
+        "@com_github_google_benchmark//:benchmark_main",
+    ],
+)
+
+cc_library(
+    name = "sine_series",
+    srcs = ["sine_series.h"],
+    hdrs = ["sine_series.h"],
+)
+
+cc_binary(
+    name = "sine_series_test",
+    srcs = ["sine_series_test.cpp"],
+    deps = [
+        ":sine_series",
+        "@com_github_google_googletest//:gtest_main",
+    ],
+)
