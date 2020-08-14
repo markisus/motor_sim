@@ -420,8 +420,8 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
         }
 
         ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 3.0f);
-        implot_central_line("Phase Voltage Space Vector",
-                            phase_voltage_sv.real(), phase_voltage_sv.imag());
+        implot_central_line("Phase Voltage", phase_voltage_sv.real(),
+                            phase_voltage_sv.imag());
         ImPlot::PopStyleVar();
 
         std::complex<Scalar> current_sv =
@@ -431,8 +431,7 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
             current_sv *= park_transform;
         }
 
-        implot_central_line("Current Space Vector", current_sv.real(),
-                            current_sv.imag());
+        implot_central_line("Current", current_sv.real(), current_sv.imag());
 
         std::complex<Scalar> normed_bEmf_sv =
             clarke_transform(state.motor.normalized_bEmfs);
@@ -441,7 +440,7 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
             normed_bEmf_sv *= park_transform;
         }
 
-        implot_central_line("Normed bEmf Space Vector", normed_bEmf_sv.real(),
+        implot_central_line("Normed bEmf ", normed_bEmf_sv.real(),
                             normed_bEmf_sv.imag());
 
         if (state.commutation_mode == kCommutationModeFOC) {
@@ -456,6 +455,14 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
             implot_central_line("FOC Voltage Desired", voltage_sv.real(),
                                 voltage_sv.imag());
         }
+
+        std::complex<Scalar> bEmf_sv = clarke_transform(state.motor.bEmfs);
+
+        if (options->use_rotor_frame) {
+            bEmf_sv *= park_transform;
+        }
+
+        implot_central_line("bEmf", bEmf_sv.real(), bEmf_sv.imag());
 
         ImPlot::EndPlot();
     }
@@ -518,7 +525,6 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     ImGui::Columns(2);
     ImGui::SetColumnWidth(0, 120);
 
-    ImGui::Text("Rotor Position");
     draw_rotor_plot(viz_data, sim_state->motor.rotor_angle);
 
     ImGui::NextColumn();
@@ -534,6 +540,9 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                        0.001f, 1.0f);
 
     ImGui::Columns(1);
+
+    ImGui::Text("Rotor Angle %f", sim_state->motor.rotor_angle);
+    ImGui::Text("Encoder Position %f", sim_state->motor.encoder_position);
 
     ImGui::NewLine();
     ImGui::Text("Space Vectors");
@@ -577,8 +586,15 @@ void run_gui(const VizData& viz_data, VizOptions* options,
             }
 
             if (sim_state->commutation_mode == kCommutationModeFOC) {
-                Slider("Desired Torque", &sim_state->foc.desired_torque, -1.0,
+                Slider("Desired Torque", &sim_state->foc_desired_torque, -1.0,
                        1.0);
+
+                ImGui::Checkbox("Non-Sinusoidal Drive Mode",
+                                &sim_state->foc_non_sinusoidal_drive_mode);
+                ImGui::Checkbox("Cogging Compensation",
+                                &sim_state->foc_use_cogging_compensation);
+		ImGui::Checkbox("Back EMF Compensation",
+                                &sim_state->foc_use_bEmf_compensation);
             }
 
             ImGui::EndTabItem();
@@ -737,6 +753,10 @@ void run_gui(const VizData& viz_data, VizOptions* options,
         // convenience reference
         auto& cogging_torque_map = sim_state->motor.cogging_torque_map;
 
+        if (ImGui::Button("Set Cogging Torque to Zero")) {
+            cogging_torque_map = {};
+        }
+
         if (ImGui::Button("Generate Random Cogging Torque Map")) {
             std::random_device rd{};
             std::mt19937 gen{rd()};
@@ -797,12 +817,22 @@ void run_gui(const VizData& viz_data, VizOptions* options,
 
             // rescale
             Scalar max_abs = 0;
-            for (int i = 0; i < cogging_torque_map.size(); ++i) {
-                max_abs = std::max(max_abs, std::abs(cogging_torque_map[i]));
+            for (const Scalar torque : cogging_torque_map) {
+                max_abs = std::max(max_abs, std::abs(torque));
             }
 
-            for (int i = 0; i < cogging_torque_map.size(); ++i) {
-                cogging_torque_map[i] *= 0.01 / max_abs;
+            for (Scalar& torque : cogging_torque_map) {
+                torque *= 0.01 / max_abs;
+            }
+
+            // sanity check energy conservation
+            Scalar energy = 0;
+            for (const Scalar torque : cogging_torque_map) {
+                energy += torque;
+            }
+            energy *= 2 * kPI / cogging_torque_map.size();
+            if (std::abs(energy) > 1e-8) {
+                printf("Energy conservation violated by cogging map\n");
             }
         }
 

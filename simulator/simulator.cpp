@@ -56,9 +56,9 @@ std::array<bool, 3> six_step_commutate(const Scalar electrical_angle,
             get_commutation_state(progress + phase_advance - 2.0 / 3)};
 }
 
-void apply_pole_voltages(const Scalar dt,
-                         const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
-                         MotorState* motor) {
+void step_motor(const Scalar dt,
+                const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
+                MotorState* motor) {
 
     motor->pole_voltages = pole_voltages;
     motor->normalized_bEmfs << // clang-format off
@@ -89,7 +89,15 @@ void apply_pole_voltages(const Scalar dt,
 
     motor->phase_currents += di_dt * dt;
 
-    motor->torque = motor->phase_currents.dot(motor->normalized_bEmfs);
+    motor->encoder_position =
+        motor->cogging_torque_map.size() *
+        std::clamp<Scalar>(motor->rotor_angle / (2 * kPI), 0.0, 1.0);
+
+    const Scalar cogging_torque =
+        motor->cogging_torque_map[int(motor->encoder_position)];
+
+    motor->torque =
+        motor->phase_currents.dot(motor->normalized_bEmfs) + cogging_torque;
 
     motor->rotor_angular_accel = motor->torque / motor->rotor_inertia;
     motor->rotor_angular_vel += motor->rotor_angular_accel * dt;
@@ -139,30 +147,41 @@ get_pole_voltages(const Scalar bus_voltage, const Scalar diode_active_voltage,
     return pole_voltages;
 }
 
-void step_foc(const MotorState& motor, FocState* foc_state) {
+std::complex<Scalar>
+get_desired_current_qd_non_sinusoidal(const Scalar desired_torque,
+                                      const MotorState& motor) {
+    const std::complex<Scalar> park_transform =
+        get_rotation(-motor.q_axis_electrical_angle);
 
-    const Scalar q_axis_angle = motor.electrical_angle - kPI / 2;
-    const std::complex<Scalar> park_transform = get_rotation(-q_axis_angle);
-
+    // try to generate torque only along the q axis, even if there are
+    // d-axis harmonics present
     const std::complex<Scalar> normed_bEmf_qd =
         park_transform * clarke_transform(motor.normalized_bEmfs);
+    // todo: handle when normed_bEmf_qd.real() == 0
+    const Scalar desired_current_q = desired_torque / normed_bEmf_qd.real();
 
+    return {desired_current_q, 0};
+}
+
+std::complex<Scalar> get_desired_current_qd(const Scalar desired_torque,
+                                            const Scalar normed_bEmf0) {
+    const Scalar desired_current_q =
+        desired_torque / (kClarkeScale * normed_bEmf0 * 1.5);
+    return {desired_current_q, 0};
+}
+
+void step_foc_current_controller(const std::complex<Scalar>& desired_current_qd,
+                                 const MotorState& motor, FocState* foc_state) {
+    const std::complex<Scalar> park_transform =
+        get_rotation(-motor.q_axis_electrical_angle);
     const std::complex<Scalar> current_qd =
         park_transform * clarke_transform(motor.phase_currents);
-
-    // try to generate torque only along the q axis, even if there are d-axis
-    // harmonics present
-    // FIXME: What if the q axis torque function is 0? Is that even possible?
-    const Scalar desired_current_q =
-        foc_state->desired_torque / normed_bEmf_qd.real();
-
-    const Scalar voltage_q =
-        pi_control(foc_state->i_controller_params, &foc_state->iq_controller,
-                   foc_state->period, current_qd.real(), desired_current_q);
-    const Scalar voltage_d =
-        pi_control(foc_state->i_controller_params, &foc_state->id_controller,
-                   foc_state->period, current_qd.imag(), 0);
-
+    const Scalar voltage_q = pi_control(
+        foc_state->i_controller_params, &foc_state->iq_controller,
+        foc_state->period, current_qd.real(), desired_current_qd.real());
+    const Scalar voltage_d = pi_control(
+        foc_state->i_controller_params, &foc_state->id_controller,
+        foc_state->period, current_qd.imag(), desired_current_qd.imag());
     foc_state->voltage_qd = {voltage_q, voltage_d};
 }
 
@@ -231,7 +250,26 @@ int main(int argc, char* argv[]) {
                 if (state.commutation_mode == kCommutationModeFOC) {
                     if (periodic_timer(state.foc.period, state.dt,
                                        &state.foc.timer)) {
-                        step_foc(state.motor, &state.foc);
+                        Scalar desired_torque = state.foc_desired_torque;
+                        if (state.foc_use_cogging_compensation) {
+                            desired_torque -=
+                                state.motor.cogging_torque_map[int(
+                                    state.motor.encoder_position)];
+                        }
+
+                        std::complex<Scalar> desired_current_qd;
+                        if (state.foc_non_sinusoidal_drive_mode) {
+                            desired_current_qd =
+                                get_desired_current_qd_non_sinusoidal(
+                                    desired_torque, state.motor);
+                        } else {
+                            desired_current_qd = get_desired_current_qd(
+                                desired_torque,
+                                state.motor.normalized_bEmf_coeffs(0));
+                        }
+
+                        step_foc_current_controller(desired_current_qd,
+                                                    state.motor, &state.foc);
                     }
 
                     // assert the requested qd voltage with PWM
@@ -239,20 +277,18 @@ int main(int argc, char* argv[]) {
                         const std::complex<Scalar> inv_park_transform =
                             get_rotation(state.motor.q_axis_electrical_angle);
 
-                        const std::complex<Scalar> voltage_ab =
+                        std::complex<Scalar> voltage_ab =
                             inv_park_transform * state.foc.voltage_qd;
 
-                        const std::complex<Scalar> existing_back_emf_ab =
-                            clarke_transform(state.motor.normalized_bEmfs) *
-                            state.motor.rotor_angular_vel;
+                        if (state.foc_use_bEmf_compensation) {
+                            const std::complex<Scalar> existing_back_emf_ab =
+                                clarke_transform(state.motor.normalized_bEmfs) *
+                                state.motor.rotor_angular_vel;
+                            voltage_ab += existing_back_emf_ab;
+                        }
 
-                        // need to shift the applied voltage up to counteract
-                        // the existing back emf
-                        const std::complex<Scalar> corrected_voltage_ab =
-                            existing_back_emf_ab + voltage_ab;
-
-                        state.pwm.duties = get_pwm_duties(state.bus_voltage,
-                                                          corrected_voltage_ab);
+                        state.pwm.duties =
+                            get_pwm_duties(state.bus_voltage, voltage_ab);
                     }
 
                     state.gate.commanded = get_pwm_gate_command(state.pwm);
@@ -266,7 +302,7 @@ int main(int argc, char* argv[]) {
                     state.diode_active_current, state.gate.actual,
                     state.motor.phase_currents);
 
-                apply_pole_voltages(state.dt, pole_voltages, &state.motor);
+                step_motor(state.dt, pole_voltages, &state.motor);
 
                 state.time += state.dt;
             }

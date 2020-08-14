@@ -16,6 +16,7 @@ struct MotorState {
     Eigen::Matrix<Scalar, 5, 1> normalized_bEmf_coeffs;
     std::array<Scalar, 3600> cogging_torque_map;
 
+    Scalar encoder_position = 0;
     Scalar rotor_angle = 0;
     Scalar rotor_angular_vel = 0;
     Scalar rotor_angular_accel = 0;
