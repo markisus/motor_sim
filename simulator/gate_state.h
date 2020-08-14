@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scalar.h"
+#include <Eigen/Dense>
 #include <array>
 
 // literals for use with switch states
@@ -43,4 +44,38 @@ inline void update_gate_state(const Scalar dead_time, const Scalar dt,
             }
         }
     }
+}
+
+inline Eigen::Matrix<Scalar, 3, 1>
+get_pole_voltages(const Scalar bus_voltage, const Scalar diode_active_voltage,
+                  const Scalar diode_active_current,
+                  const std::array<int, 3>& gates,
+                  const Eigen::Matrix<Scalar, 3, 1>& phase_currents) {
+    Eigen::Matrix<Scalar, 3, 1> pole_voltages;
+    for (int i = 0; i < 3; ++i) {
+        Scalar v_pole = 0;
+        switch (gates[i]) {
+        case OFF:
+            // todo: derivation
+            if (phase_currents(i) > 0) {
+                pole_voltages(i) = 0;
+            } else {
+                pole_voltages(i) = bus_voltage;
+            }
+            if (std::abs(phase_currents(i)) > diode_active_current) {
+                pole_voltages(i) -= diode_active_voltage;
+            }
+            break;
+        case HIGH:
+            pole_voltages(i) = bus_voltage;
+            break;
+        case LOW:
+            pole_voltages(i) = 0;
+            break;
+        default:
+            printf("Unhandled switch case!");
+            exit(-1);
+        }
+    }
+    return pole_voltages;
 }

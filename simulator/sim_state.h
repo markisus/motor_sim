@@ -3,6 +3,7 @@
 #include "controls/pi_control.h"
 #include "gate_state.h"
 #include "motor_state.h"
+#include "foc_state.h"
 #include "pwm_state.h"
 #include "scalar.h"
 #include <Eigen/Dense>
@@ -10,18 +11,6 @@
 constexpr int kCommutationModeNone = 0;
 constexpr int kCommutationModeSixStep = 1;
 constexpr int kCommutationModeFOC = 2;
-
-struct FocState {
-    Scalar period = 1.0 / 10000; // sec, 10kHz
-    Scalar timer = 0;
-
-    PiParams i_controller_params;
-    PiContext iq_controller;
-    PiContext id_controller;
-
-    // output command
-    std::complex<Scalar> voltage_qd;
-};
 
 struct SimState {
     Scalar time = 0;
@@ -59,3 +48,4 @@ struct SimState {
 };
 
 inline void init_sim_state(SimState* state) { init_motor_state(&state->motor); }
+

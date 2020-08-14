@@ -16,7 +16,7 @@ struct RollingBuffers {
     std::array<std::array<Scalar, kNumRollingPts>, 3> phase_vs;
     std::array<std::array<Scalar, kNumRollingPts>, 3> phase_currents;
     std::array<std::array<Scalar, kNumRollingPts>, 3> bEmfs;
-    std::array<std::array<Scalar, kNumRollingPts>, 3> normalized_bEmfs;
+    std::array<std::array<Scalar, kNumRollingPts>, 3> normed_bEmfs;
     std::array<Scalar, kNumRollingPts> torque;
     std::array<Scalar, kNumRollingPts> rotor_angular_vel;
     std::array<Scalar, kNumRollingPts> pwm_level;

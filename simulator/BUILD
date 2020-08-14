@@ -20,13 +20,68 @@ cc_library(
     ])
 
 cc_library(
+    name = "foc_state",
+    hdrs = ["foc_state.h"],
+    deps = [
+        ":scalar",
+        "//controls:pi_control"
+    ]
+)
+
+cc_library(
+    name = "foc",
+    hdrs = ["foc.h"],
+    srcs = [
+        "foc.h",
+        "foc.cpp",
+    ],
+    deps = [
+        ":clarke_transform",
+        ":foc_state",
+        ":motor_state",
+        "//util:rotation"
+    ]
+)
+
+cc_library(
     name = "motor_state",
     hdrs = ["motor_state.h"],
     deps = [
         ":scalar",
-        "//third_party/eigen:eigen",
+        "//util:math_constants",
     ]
 )
+
+cc_library(
+    name = "motor",
+    hdrs = [
+        "motor.h",
+    ],
+    srcs = [
+        "motor.h",
+        "motor.cpp",
+    ],
+    deps = [
+        ":motor_state",
+        ":scalar",
+        ":sine_series",
+        "//controls:pi_control",
+        "//third_party/eigen:eigen",
+    ],
+    copts = COPTS,
+)
+
+cc_library(
+    name = "six_step",
+    hdrs = ["six_step.h"],
+    srcs = [
+        "six_step.h",
+        "six_step.cpp",
+
+    ],
+    deps = [":scalar",
+            "//util:math_constants",
+    ])
 
 cc_library(
     name = "conversions",
@@ -106,6 +161,7 @@ cc_library(
         ":conversions",
         ":motor_state",
         ":pwm_state",
+        ":foc_state",
         ":scalar",
         ":sim_state",
         ":sine_series",
@@ -128,7 +184,10 @@ cc_binary(
     deps = [
         ":clarke_transform",
         ":conversions",
+        ":foc",
+        ":six_step",
         ":gui",
+        ":motor",
         "//controls:pi_control",
         "//third_party/eigen:eigen",
         "//third_party/glad:glad",

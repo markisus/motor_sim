@@ -3,6 +3,7 @@
 #include "scalar.h"
 #include "util/math_constants.h"
 #include <Eigen/Dense>
+#include <array>
 
 struct MotorState {
     // motor characteristics
@@ -13,7 +14,7 @@ struct MotorState {
     Scalar phase_resistance = 1e-2;
     // normalized bEmf aka torque/current curve
     // odd coefficients of sine fourier expansion
-    Eigen::Matrix<Scalar, 5, 1> normalized_bEmf_coeffs;
+    Eigen::Matrix<Scalar, 5, 1> normed_bEmf_coeffs;
     std::array<Scalar, 3600> cogging_torque_map;
 
     Scalar encoder_position = 0;
@@ -29,7 +30,7 @@ struct MotorState {
     Eigen::Matrix<Scalar, 3, 1> phase_voltages = {};
     Eigen::Matrix<Scalar, 3, 1> phase_currents = {};
     Eigen::Matrix<Scalar, 3, 1> bEmfs = {};
-    Eigen::Matrix<Scalar, 3, 1> normalized_bEmfs =
+    Eigen::Matrix<Scalar, 3, 1> normed_bEmfs =
         {}; // units of V . s,
             // aka N . m / Amps
             // same thing as
@@ -42,7 +43,5 @@ inline void init_motor_state(MotorState* motor) {
     motor->phase_voltages.setZero();
     motor->phase_currents.setZero();
     motor->bEmfs.setZero();
-    motor->normalized_bEmf_coeffs << 0.01, 0, 0, 0, 0;
+    motor->normed_bEmf_coeffs << 0.01, 0, 0, 0, 0;
 }
-
-

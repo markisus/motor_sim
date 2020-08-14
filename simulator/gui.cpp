@@ -205,7 +205,7 @@ void update_rolling_buffers(const Scalar time, const MotorState& motor,
 
         buffers->bEmfs[i][next_idx] = motor.bEmfs(i);
 
-        buffers->normalized_bEmfs[i][next_idx] = motor.normalized_bEmfs(i);
+        buffers->normed_bEmfs[i][next_idx] = motor.normed_bEmfs(i);
 
         buffers->pwm_duties[i][next_idx] = pwm.duties[i];
 
@@ -440,7 +440,7 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
         implot_central_line("Current", current_sv.real(), current_sv.imag());
 
         std::complex<Scalar> normed_bEmf_sv =
-            clarke_transform(state.motor.normalized_bEmfs);
+            clarke_transform(state.motor.normed_bEmfs);
 
         if (options->use_rotor_frame) {
             normed_bEmf_sv *= park_transform;
@@ -710,7 +710,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
         };
 
         Eigen::Matrix<Scalar, 5, 1> gui_scale =
-            to_gui_scale(sim_state->motor.normalized_bEmf_coeffs);
+            to_gui_scale(sim_state->motor.normed_bEmf_coeffs);
 
         ImGui::Text("Presets");
         ImGui::SameLine();
@@ -733,7 +733,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                    1);
         }
 
-        sim_state->motor.normalized_bEmf_coeffs = from_gui_scale(gui_scale);
+        sim_state->motor.normed_bEmf_coeffs = from_gui_scale(gui_scale);
 
         constexpr int kNumSamples = 1000;
         static std::array<Scalar, kNumSamples> angles;
@@ -743,16 +743,16 @@ void run_gui(const VizData& viz_data, VizOptions* options,
             Eigen::Matrix<Scalar, 5, 1> odd_sine_series;
             generate_odd_sine_series(5, angle, odd_sine_series.data());
             samples[i] =
-                odd_sine_series.dot(sim_state->motor.normalized_bEmf_coeffs);
+                odd_sine_series.dot(sim_state->motor.normed_bEmf_coeffs);
             angles[i] = angle;
         }
 
         ImPlot::SetNextPlotLimitsX(0, 2 * kPI, ImGuiCond_Once);
         ImPlot::SetNextPlotLimitsY(
-            -1.5 * sim_state->motor.normalized_bEmf_coeffs(0),
-            1.5 * sim_state->motor.normalized_bEmf_coeffs(0), ImGuiCond_Once);
+            -1.5 * sim_state->motor.normed_bEmf_coeffs(0),
+            1.5 * sim_state->motor.normed_bEmf_coeffs(0), ImGuiCond_Once);
 
-        if (ImPlot::BeginPlot("Normalized Back Emf", "Electrical Angle (rad)",
+        if (ImPlot::BeginPlot("Normed Back Emf", "Electrical Angle (rad)",
                               "Volt . sec", ImVec2(kPlotWidth, kPlotHeight))) {
             ImPlot::PlotLine("", angles.data(), samples.data(), angles.size());
             ImPlot::EndPlot();
