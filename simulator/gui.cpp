@@ -32,16 +32,22 @@ struct AutoScroller {
 
 // call before BeginPlot
 void implot_autoscroll_next_plot(Scalar latest_data, AutoScroller* ctx) {
-    // const int last_idx = get_rolling_buffer_back(buffers.ctx);
-    // const Scalar last_angular_vel = buffers.rotor_angular_vel[last_idx];
-
     // auto scroll
     if (ctx->can_trigger_auto_scroll) {
+        // if the range is tiny and the curve is wobbling, auto scroll will go
+        // crazy - constantly hitting max and min bounds
+        Scalar range_adjust = 0;
+        if (ctx->last_y_range < 1e-5) {
+            range_adjust = 1e-5;
+        }
+
         if (latest_data < ctx->last_y_min) {
             ImPlot::SetNextPlotLimitsY(
-                latest_data, latest_data + ctx->last_y_range, ImGuiCond_Always);
+                latest_data, latest_data + ctx->last_y_range + range_adjust,
+                ImGuiCond_Always);
         } else if (latest_data > ctx->last_y_max) {
-            ImPlot::SetNextPlotLimitsY(latest_data - ctx->last_y_range,
+            ImPlot::SetNextPlotLimitsY(latest_data - ctx->last_y_range -
+                                           range_adjust,
                                        latest_data, ImGuiCond_Always);
         }
     }
