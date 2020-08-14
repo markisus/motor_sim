@@ -31,9 +31,6 @@ int main(int argc, char* argv[]) {
 
     VizOptions viz_options;
 
-    // FOC stuff
-    const Scalar desired_torque = 1.0; // N.m
-
     wrappers::SdlContext sdl_context("Motor Simulator",
                                      /*width=*/1920 / 2,
                                      /*height=*/1080 / 2);
@@ -76,9 +73,11 @@ int main(int argc, char* argv[]) {
                 const bool new_pwm_cycle =
                     step_pwm_state(state.dt, &state.board.pwm);
 
+                std::array<bool, 3> gate_command = {};
+
                 // update relevant commutation modes
                 if (state.commutation_mode == kCommutationModeSixStep) {
-                    state.board.gate.commanded =
+                    gate_command =
                         six_step_commutate(state.motor.electrical_angle,
                                            state.six_step_phase_advance);
                 }
@@ -127,18 +126,15 @@ int main(int argc, char* argv[]) {
                             get_pwm_duties(state.board.bus_voltage, voltage_ab);
                     }
 
-                    state.board.gate.commanded =
-                        get_pwm_gate_command(state.board.pwm);
+                    gate_command = get_pwm_gate_command(state.board.pwm);
                 }
 
-                // step motor
-                update_gate_state(state.board.gate_dead_time, state.dt,
-                                  &state.board.gate);
+                state.board.gate.commanded = gate_command;
+                update_gate_state(state.dt, &state.board.gate);
 
                 const auto pole_voltages = get_pole_voltages(
-                    state.board.bus_voltage, state.board.diode_active_voltage,
-                    state.board.diode_active_current, state.board.gate.actual,
-                    state.motor.phase_currents);
+                    state.board.bus_voltage, state.motor.phase_currents,
+                    state.board.gate);
 
                 step_motor(state.dt, state.load_torque, pole_voltages,
                            &state.motor);

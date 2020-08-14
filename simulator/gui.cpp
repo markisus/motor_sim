@@ -612,11 +612,11 @@ void run_gui(const VizData& viz_data, VizOptions* options,
             Slider("Load Torque", &sim_state->load_torque, -1.0, 1.0);
 
             Slider("Diode Active Voltage",
-                   &sim_state->board.diode_active_voltage, 0.0, 1.0);
+                   &sim_state->board.gate.diode_active_voltage, 0.0, 1.0);
 
-            double dead_time_usec = sim_state->board.gate_dead_time * 1e6;
+            double dead_time_usec = sim_state->board.gate.dead_time * 1e6;
             if (Slider("Gate Dead Time (usec)", &dead_time_usec, 0.0f, 100)) {
-                sim_state->board.gate_dead_time = dead_time_usec /= 1e6;
+                sim_state->board.gate.dead_time = dead_time_usec /= 1e6;
             }
 
             ImGui::EndTabItem();

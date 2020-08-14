@@ -10,13 +10,23 @@ constexpr int HIGH = 1;
 constexpr int OFF = 2;
 
 struct GateState {
+    // time between commutations when gate is neither
+    // high nor low, to prevent shoot-through current
+    Scalar dead_time = 0; // sec
+
+    Scalar diode_active_voltage = 1;    // voltage drop,
+                                        // which develops current flows across
+                                        // flyback diode
+    Scalar diode_active_current = 1e-3; // current,
+                                        // above which diode develops the
+                                        // v_diode_active voltage
+
     std::array<bool, 3> commanded = {};
     std::array<int, 3> actual = {OFF, OFF, OFF};
     std::array<Scalar, 3> dead_time_remaining = {};
 };
 
-inline void update_gate_state(const Scalar dead_time, const Scalar dt,
-                              GateState* gate_state) {
+inline void update_gate_state(const Scalar dt, GateState* gate_state) {
     for (int i = 0; i < 3; ++i) {
         const int command = gate_state->commanded[i] ? HIGH : LOW;
 
@@ -35,7 +45,7 @@ inline void update_gate_state(const Scalar dead_time, const Scalar dt,
         } else {
             // gate is actually on - need to enter dead time
             gate_state->actual[i] = OFF;
-            gate_state->dead_time_remaining[i] = dead_time - dt;
+            gate_state->dead_time_remaining[i] = gate_state->dead_time - dt;
 
             // see if sufficient dead time has been acheived
             // simulation speed is too coarse to see the dead time
@@ -47,14 +57,13 @@ inline void update_gate_state(const Scalar dead_time, const Scalar dt,
 }
 
 inline Eigen::Matrix<Scalar, 3, 1>
-get_pole_voltages(const Scalar bus_voltage, const Scalar diode_active_voltage,
-                  const Scalar diode_active_current,
-                  const std::array<int, 3>& gates,
-                  const Eigen::Matrix<Scalar, 3, 1>& phase_currents) {
+get_pole_voltages(const Scalar bus_voltage,
+                  const Eigen::Matrix<Scalar, 3, 1>& phase_currents,
+                  const GateState& gate) {
     Eigen::Matrix<Scalar, 3, 1> pole_voltages;
     for (int i = 0; i < 3; ++i) {
         Scalar v_pole = 0;
-        switch (gates[i]) {
+        switch (gate.actual[i]) {
         case OFF:
             // todo: derivation
             if (phase_currents(i) > 0) {
@@ -62,8 +71,8 @@ get_pole_voltages(const Scalar bus_voltage, const Scalar diode_active_voltage,
             } else {
                 pole_voltages(i) = bus_voltage;
             }
-            if (std::abs(phase_currents(i)) > diode_active_current) {
-                pole_voltages(i) -= diode_active_voltage;
+            if (std::abs(phase_currents(i)) > gate.diode_active_current) {
+                pole_voltages(i) -= gate.diode_active_voltage;
             }
             break;
         case HIGH:

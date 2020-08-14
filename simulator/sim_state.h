@@ -37,5 +37,5 @@ struct SimState {
 
 inline void init_sim_state(SimState* state) {
     init_motor_state(&state->motor);
-    state->board.gate_dead_time = 2 * state->dt;
+    state->board.gate.dead_time = 2 * state->dt;
 }
