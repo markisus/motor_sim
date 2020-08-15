@@ -714,6 +714,8 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
 
             ImGui::EndTabItem();
         }
+
+	ImGui::EndTabBar();
     }
 }
 
