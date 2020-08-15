@@ -42,6 +42,18 @@ cc_binary(
     ]
 )
 
+cc_library(
+    name = "quantization",
+    hdrs = ["quantization.h"]);
+
+cc_binary(
+    name = "quantization_test",
+    srcs = ["quantization_test.cpp"],
+    deps = [
+        ":quantization",
+        "@com_github_google_googletest//:gtest_main",
+    ],
+)
 
 cc_binary(
     name = "sine_series_benchmark",

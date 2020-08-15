@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/scalar.h"
+#include "util/quantization.h"
 #include "util/time.h"
 #include <array>
 
@@ -8,13 +9,20 @@ struct PwmState {
     std::array<Scalar, 3> duties = {};
     Scalar period = 1.0 / 15000; // sec, 15kHz
     Scalar timer = 0;            // 0 to 1
-    Scalar level = 0; // triangle wave from 0 to 1, lasting one period
+
+    Scalar level = 0;      // triangle wave from 0 to 1, lasting one period
+    Scalar resolution = 0; // quantization, when positive
 };
 
 inline bool step_pwm_state(const Scalar dt, PwmState* state) {
     const bool ticked = periodic_timer(state->period, dt, &state->timer);
     const Scalar progress = state->timer / state->period;
     state->level = progress < 0.5 ? 2.0 * progress : 2.0 * (1.0 - progress);
+
+    if (state->resolution != 0) {
+        state->level = quantize(state->resolution, state->level);
+    }
+
     return ticked;
 }
 

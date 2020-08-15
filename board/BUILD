@@ -18,6 +18,7 @@ cc_library(
     hdrs = ["pwm_state.h"],
     deps = [
         "//config:scalar",
+        "//util:quantization",
         "//util:time",
     ]
 )

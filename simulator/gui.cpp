@@ -823,6 +823,22 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                 sim_state->board.gate.dead_time = dead_time_usec /= 1e6;
             }
 
+            ImGui::Text("PWM Timer Resolution");
+            static int pwm_resolution_bits = 0;
+            ImGui::RadioButton("1 bit", &pwm_resolution_bits, 1);
+	    ImGui::SameLine();
+            ImGui::RadioButton("8 bit", &pwm_resolution_bits, 8);
+            ImGui::SameLine();
+            ImGui::RadioButton("16 bit", &pwm_resolution_bits, 16);
+            ImGui::SameLine();
+            ImGui::RadioButton("Infinity", &pwm_resolution_bits, 0);
+            if (pwm_resolution_bits == 0) {
+                // infinity resolution
+                sim_state->board.pwm.resolution = 0;
+            } else {
+                sim_state->board.pwm.resolution =
+                    std::pow(2.0, -pwm_resolution_bits);
+            }
             ImGui::EndTabItem();
         }
 
