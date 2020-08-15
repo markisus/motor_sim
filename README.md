@@ -1,5 +1,6 @@
 BLDC and PMSM simulator
 =====================
+This interactive simulator is designed to visualize the inner workings of BLDC and PMSM control algorithms and provide a test bed for prototyping of more advanced control algorithms. Parameters like rotor inertia, bus voltage, PWM timer frequency, and many more can be adjusted in real time to see their effects on the control policy.
 
 ![image](https://user-images.githubusercontent.com/58680214/90294531-ab40ef00-de54-11ea-831c-d248d98dd388.png)
 
