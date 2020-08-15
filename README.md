@@ -3,6 +3,10 @@ BLDC and PMSM simulator
 
 ![image](https://user-images.githubusercontent.com/58680214/90294531-ab40ef00-de54-11ea-831c-d248d98dd388.png)
 
+Starting Up
+------------
+Install the bazel build system and clone this project. Run `bazel run -c opt simulator:simulator`
+
 Quick Start to FOC Simulation
 -----------------
 Step 1. In the Commutation Control Mode tab, enable FOC.
