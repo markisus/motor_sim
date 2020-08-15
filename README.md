@@ -6,7 +6,9 @@ This interactive simulator is designed to visualize the inner workings of BLDC a
 
 Starting Up
 ------------
-Install the bazel build system and clone this project. Run `bazel run -c opt simulator:simulator`
+Precompiled binaries: On 64 bit Windows, download the [precompiled binaries](https://github.com/biro-mark/motor_sim/releases/download/v0.01/biro_motor_simulator_win_x64.zip) zip. After extracting, run `simulator.exe`.
+
+Compiling from source: Install the bazel build system and clone this project. Run `bazel run -c opt simulator:simulator`
 
 Quick Start to FOC Simulation
 -----------------
