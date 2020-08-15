@@ -530,7 +530,6 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
 
     if (ImGui::BeginTabBar("##Advanced Motor Control Options")) {
         if (ImGui::BeginTabItem("Back EMF Curve")) {
-
             ImGui::Text(
                 "normed_bEmf(e) =  overal_scale * (a1 sin(e) + a3 sin(3e) "
                 "+ a5 sin(5e) + a7 "
@@ -710,12 +709,10 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
                 ImPlot::EndPlot();
             }
 
-            ImGui::End();
-
             ImGui::EndTabItem();
         }
 
-	ImGui::EndTabBar();
+        ImGui::EndTabBar();
     }
 }
 
