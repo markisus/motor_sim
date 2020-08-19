@@ -57,9 +57,8 @@ int main(int argc, char* argv[]) {
         wrappers::sdl_imgui_newframe(sdl_context.window_);
 
         if (!state.paused) {
-            update_rolling_buffers(state.time, state.motor, state.board.pwm,
-                                   state.board.gate, state.foc,
-                                   &viz_data.rolling_buffers);
+            update_rolling_buffers(state.time, state.board, state.motor,
+                                   state.foc, &viz_data.rolling_buffers);
         }
         run_gui(viz_data, &viz_options, &state);
 

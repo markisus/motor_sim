@@ -28,6 +28,7 @@ struct RollingBuffers {
     std::array<Scalar, kNumRollingPts> current_q_integral;
     std::array<Scalar, kNumRollingPts> current_d_err;
     std::array<Scalar, kNumRollingPts> current_d_integral;
+    std::array<Scalar, kNumRollingPts> power_draw; // power drawn from v_bus
 };
 
 struct VizOptions {
@@ -47,9 +48,9 @@ struct VizData {
 
 void init_viz_data(VizData* viz_data);
 
-void update_rolling_buffers(const Scalar time, const MotorState& motor,
-                            const PwmState& pwm, const GateState& gate_state,
-                            const FocState& foc, RollingBuffers* buffers);
+void update_rolling_buffers(const Scalar time, const BoardState& board,
+                            const MotorState& motor, const FocState& foc,
+                            RollingBuffers* buffers);
 
 void run_gui(const VizData& viz_data, VizOptions* viz_options,
              SimState* sim_state);

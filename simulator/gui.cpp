@@ -165,6 +165,30 @@ void draw_torque_plot(const RollingPlotParams& params,
     }
 }
 
+void draw_power_plot(const RollingPlotParams& params,
+                     const RollingBuffers& buffers) {
+    ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
+                               ImGuiCond_Always);
+    ImPlot::SetNextPlotLimitsY(-2, 2, ImGuiCond_Once);
+
+    static AutoScroller as;
+    if (get_rolling_buffer_count(buffers.ctx) > 0) {
+        const int last_idx = get_rolling_buffer_back(buffers.ctx);
+        const Scalar last_torque = buffers.power_draw[last_idx];
+        implot_autoscroll_next_plot(last_torque, &as);
+    }
+
+    if (ImPlot::BeginPlot("Power Draw", "Seconds", "Watts",
+                          ImVec2(kPlotWidth, kPlotHeight))) {
+        ImPlot::PlotLine("", buffers.timestamps.data(),
+                         buffers.power_draw.data(), params.count, params.begin,
+                         sizeof(Scalar));
+
+        implot_update_autoscroll(&as);
+        ImPlot::EndPlot();
+    }
+}
+
 void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
                                  const RollingBuffers& buffers) {
     ImPlot::SetNextPlotLimitsX(params.begin_time, params.end_time,
@@ -192,9 +216,9 @@ void draw_rotor_angular_vel_plot(const RollingPlotParams& params,
     }
 }
 
-void update_rolling_buffers(const Scalar time, const MotorState& motor,
-                            const PwmState& pwm, const GateState& gate,
-                            const FocState& foc, RollingBuffers* buffers) {
+void update_rolling_buffers(const Scalar time, const BoardState& board,
+                            const MotorState& motor, const FocState& foc,
+                            RollingBuffers* buffers) {
     const int next_idx = buffers->ctx.next_idx;
 
     buffers->timestamps[next_idx] = time;
@@ -208,11 +232,11 @@ void update_rolling_buffers(const Scalar time, const MotorState& motor,
 
         buffers->normed_bEmfs[i][next_idx] = motor.normed_bEmfs(i);
 
-        buffers->pwm_duties[i][next_idx] = pwm.duties[i];
+        buffers->pwm_duties[i][next_idx] = board.pwm.duties[i];
 
-        buffers->pwm_level[next_idx] = pwm.level;
+        buffers->pwm_level[next_idx] = board.pwm.level;
 
-        Scalar gate_state = gate.actual[i];
+        Scalar gate_state = board.gate.actual[i];
         if (gate_state == OFF) {
             // map the indeterminate state to -0.5
             gate_state = -0.5;
@@ -237,6 +261,20 @@ void update_rolling_buffers(const Scalar time, const MotorState& motor,
 
         buffers->current_d_integral[next_idx] = foc.id_controller.integral;
     }
+
+    // power calculation
+    {
+        // power is v*i for all i's that are flowing into the gates
+        Scalar power_draw = 0;
+        for (int i = 0; i < 3; ++i) {
+            if (board.gate.actual[i] == HIGH) {
+                power_draw += board.bus_voltage * motor.phase_currents(i);
+            }
+        }
+        buffers->power_draw[next_idx] = power_draw;
+    }
+
+    buffers->current_d_integral[next_idx] = foc.id_controller.integral;
 
     buffers->rotor_angular_vel[next_idx] = motor.rotor_angular_vel;
     buffers->torque[next_idx] = motor.torque;
@@ -810,7 +848,6 @@ void run_gui(const VizData& viz_data, VizOptions* options,
         }
 
         if (ImGui::BeginTabItem("System Params")) {
-
             Slider("Load Torque", &sim_state->load_torque, -1.0, 1.0);
 
             ImGui::Text("Board Params");
@@ -826,7 +863,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
             ImGui::Text("PWM Timer Resolution");
             static int pwm_resolution_bits = 0;
             ImGui::RadioButton("1 bit", &pwm_resolution_bits, 1);
-	    ImGui::SameLine();
+            ImGui::SameLine();
             ImGui::RadioButton("8 bit", &pwm_resolution_bits, 8);
             ImGui::SameLine();
             ImGui::RadioButton("16 bit", &pwm_resolution_bits, 16);
@@ -869,10 +906,12 @@ void run_gui(const VizData& viz_data, VizOptions* options,
         viz_data.rolling_buffers, options->rolling_history);
 
     ImGui::Begin("Rolling Plots");
-    ImGui::Columns(2);
+    ImGui::Columns(3);
     draw_rotor_angular_vel_plot(rolling_plot_params, viz_data.rolling_buffers);
     ImGui::NextColumn();
     draw_torque_plot(rolling_plot_params, viz_data.rolling_buffers);
+    ImGui::NextColumn();
+    draw_power_plot(rolling_plot_params, viz_data.rolling_buffers);
     ImGui::Columns(1);
 
     if (sim_state->commutation_mode == kCommutationModeFOC) {
