@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 
     VizOptions viz_options;
 
-    wrappers::SdlContext sdl_context("Motor Simulator",
+    wrappers::SdlContext sdl_context("Biro Motor Simulator",
                                      /*width=*/1920 / 2,
                                      /*height=*/1080 / 2);
 
