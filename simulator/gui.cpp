@@ -1,5 +1,6 @@
 #include "gui.h"
 #include "config/scalar.h"
+#include "motor.h"
 #include "util/clarke_transform.h"
 #include "util/conversions.h"
 #include "util/math_constants.h"
@@ -823,6 +824,21 @@ void run_gui(const VizData& viz_data, VizOptions* options,
             }
 
             if (sim_state->commutation_mode == kCommutationModeFOC) {
+                order_of_magnitude_control("Update Period (sec)",
+                                           &sim_state->foc.period, -5, -2);
+
+                const Scalar update_freq = 1.0 / sim_state->foc.period;
+                if (update_freq < 1000) {
+                    // decide whether to display Hz vs kHz
+                    // todo: make this prettier
+                    ImGui::Text("=> Update Frequency %f Hz",
+                                1.0 / sim_state->foc.period);
+                } else {
+                    ImGui::Text("=> Update Frequency %f kHz",
+                                1.0 / sim_state->foc.period / 1000);
+                }
+
+		ImGui::NewLine();
                 Slider("Load Torque", &sim_state->load_torque, -1.0, 1.0);
 
                 static bool match_load_torque = false;
@@ -836,12 +852,38 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                 ImGui::Checkbox("Desired Torque = -Load Torque",
                                 &match_load_torque);
 
+		ImGui::NewLine();
+
                 ImGui::Checkbox("Non-Sinusoidal Drive Mode",
                                 &sim_state->foc_non_sinusoidal_drive_mode);
                 ImGui::Checkbox("Cogging Compensation",
                                 &sim_state->foc_use_cogging_compensation);
                 ImGui::Checkbox("qd Decoupling",
                                 &sim_state->foc_use_qd_decoupling);
+
+		ImGui::NewLine();
+
+                ImGui::Text("PI Params");
+                static bool auto_pi_params = true;
+                ImGui::SameLine();
+                ImGui::Checkbox("Auto", &auto_pi_params);
+                if (auto_pi_params) {
+                    make_motor_pi_params(
+                        /*bandwidth=*/10000,
+                        /*resistance=*/sim_state->motor.phase_resistance,
+                        /*inductance=*/sim_state->motor.phase_inductance);
+                    ImGui::Text("P Gain %f",
+                                sim_state->foc.i_controller_params.p_gain);
+                    ImGui::Text("I Gain %f",
+                                sim_state->foc.i_controller_params.i_gain);
+                } else {
+                    order_of_magnitude_control(
+                        "P Gain", &sim_state->foc.i_controller_params.p_gain,
+                        -1, 6);
+                    order_of_magnitude_control(
+                        "I Gain", &sim_state->foc.i_controller_params.i_gain,
+                        -1, 6);
+                }
             }
 
             ImGui::EndTabItem();

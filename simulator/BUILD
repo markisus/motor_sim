@@ -62,6 +62,7 @@ cc_library(
         "//util:rolling_buffer",
         "//util:rotation",
         "//util:sine_series",
+        ":motor",
         ":motor_state",
         ":sim_state",
         "@com_google_absl//absl/strings:str_format",
