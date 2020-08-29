@@ -25,6 +25,10 @@ using namespace biro;
 int main(int argc, char* argv[]) {
     SimState state;
     init_sim_state(&state);
+    state.foc.i_controller_params =
+        make_motor_pi_params(/*bandwidth=*/10000,
+                             /*resistance=*/state.motor.phase_resistance,
+                             /*inductance=*/state.motor.phase_inductance);
 
     VizData viz_data;
     init_viz_data(&viz_data);
@@ -61,11 +65,6 @@ int main(int argc, char* argv[]) {
                                    state.foc, &viz_data.rolling_buffers);
         }
         run_gui(viz_data, &viz_options, &state);
-
-        state.foc.i_controller_params =
-            make_motor_pi_params(/*bandwidth=*/10000,
-                                 /*resistance=*/state.motor.phase_resistance,
-                                 /*inductance=*/state.motor.phase_inductance);
 
         if (!state.paused) {
             for (int i = 0; i < state.step_multiplier; ++i) {
