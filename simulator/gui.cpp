@@ -948,6 +948,12 @@ void run_gui(const VizData& viz_data, VizOptions* options,
         viz_data.rolling_buffers, options->rolling_history);
 
     ImGui::Begin("Rolling Plots");
+    if (ImGui::Button("Dump CSV to Clipboard")) {
+        ImGui::LogToClipboard();
+        ImGui::LogText(to_csv(viz_data.rolling_buffers).c_str());
+        ImGui::LogFinish();
+    }
+
     ImGui::Columns(3);
     draw_rotor_angular_vel_plot(rolling_plot_params, viz_data.rolling_buffers);
     ImGui::NextColumn();
@@ -994,4 +1000,48 @@ void run_gui(const VizData& viz_data, VizOptions* options,
         run_advanced_motor_config(&sim_state->motor);
         ImGui::End();
     }
+}
+
+std::string to_csv(const RollingBuffers& rolling_buffers) {
+    std::stringstream ss;
+
+    using NamedField =
+        std::pair<const char*, const std::array<Scalar, kNumRollingPts>*>;
+
+    std::array<NamedField, 8> fields{
+        std::make_pair("timestamp", &rolling_buffers.timestamps),
+        std::make_pair("torque", &rolling_buffers.torque),
+        std::make_pair("bEmf_a", &rolling_buffers.bEmfs[0]),
+        std::make_pair("bEmf_b", &rolling_buffers.bEmfs[1]),
+        std::make_pair("bEmf_c", &rolling_buffers.bEmfs[2]),
+        std::make_pair("current_a", &rolling_buffers.phase_currents[0]),
+        std::make_pair("current_b", &rolling_buffers.phase_currents[1]),
+        std::make_pair("current_c", &rolling_buffers.phase_currents[2])};
+
+    // write the headers
+    for (int col = 0; col < fields.size(); ++col) {
+        ss << fields[col].first;
+        if (col + 1 != fields.size()) {
+            // write the separator
+            ss << ",";
+        }
+    }
+    ss << "\n";
+
+    // write the values
+    const int num_rows = get_rolling_buffer_count(rolling_buffers.ctx);
+    for (int row = 0; row < num_rows; ++row) {
+        for (int col = 0; col < fields.size(); ++col) {
+            // write the value
+            ss << (*fields[col].second)[row];
+            if (col + 1 != fields.size()) {
+                // write the separator
+                ss << ",";
+            }
+        }
+        // row finished
+        ss << "\n";
+    }
+
+    return ss.str();
 }

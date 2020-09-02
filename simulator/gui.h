@@ -31,6 +31,8 @@ struct RollingBuffers {
     std::array<Scalar, kNumRollingPts> power_draw; // power drawn from v_bus
 };
 
+std::string to_csv(const RollingBuffers& rolling_buffers);
+
 struct VizOptions {
     bool use_rotor_frame = true; // space vector viz
     float rolling_history = 1;   // sec
