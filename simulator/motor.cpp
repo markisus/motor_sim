@@ -6,7 +6,6 @@ PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
     PiParams params;
     params.p_gain = inductance * bandwidth;
     params.i_gain = resistance * bandwidth;
-    params.max_integral = std::numeric_limits<Scalar>::infinity();
     return params;
 }
 
