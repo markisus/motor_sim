@@ -109,6 +109,35 @@ int main(int argc, char* argv[]) {
 
                         step_foc_current_controller(desired_current_qd,
                                                     state.motor, &state.foc);
+
+                        // anti-windup
+                        if (state.foc_pi_anti_windup) {
+                            const Scalar voltage_qd_norm =
+                                std::abs(state.foc.voltage_qd);
+                            if (voltage_qd_norm >
+                                state.board.bus_voltage * kClarkeScale) {
+                                printf("Anti windup in effect\n");
+                                printf("voltage_qd = %f, %f\n",
+                                       state.foc.voltage_qd.real(),
+                                       state.foc.voltage_qd.imag());
+                                const std::complex<Scalar>
+                                    voltage_qd_saturation =
+                                        state.foc.voltage_qd *
+                                        (state.board.bus_voltage *
+                                         kClarkeScale / voltage_qd_norm);
+                                printf("voltage_qd_sat = %f, %f\n",
+                                       voltage_qd_saturation.real(),
+                                       voltage_qd_saturation.imag());
+
+                                // unwind integral terms
+                                pi_unwind(state.foc.i_controller_params,
+                                          voltage_qd_saturation.real(),
+                                          &state.foc.iq_controller);
+                                pi_unwind(state.foc.i_controller_params,
+                                          voltage_qd_saturation.imag(),
+                                          &state.foc.id_controller);
+                            }
+                        }
                     }
 
                     // assert the requested qd voltage with PWM

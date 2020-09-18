@@ -5,9 +5,13 @@
 Scalar pi_control(const PiParams& params, PiContext* context, const Scalar dt,
                   const Scalar actual, const Scalar target) {
     context->err = target - actual;
-    context->integral = std::clamp(context->integral + context->err * dt,
-                                   -params.max_integral, params.max_integral);
+    context->integral = context->integral + context->err * dt;
+    return pi_get_control(params, *context);
+}
 
-    return params.p_gain * context->err + params.i_gain * context->integral +
-           params.bias;
+void pi_unwind(const PiParams& pi_params, const Scalar saturation_value,
+               PiContext* context) {
+    // solve `i_gain * I + bias = saturation_value` for the variable I
+    context->integral = (saturation_value - pi_params.bias) / pi_params.i_gain;
+    context->err = 0;
 }

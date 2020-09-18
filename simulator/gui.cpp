@@ -877,6 +877,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                     ImGui::Text("I Gain %f",
                                 sim_state->foc.i_controller_params.i_gain);
                 } else {
+                    ImGui::Checkbox("Anti-windup", &sim_state->foc_pi_anti_windup);
                     order_of_magnitude_control(
                         "P Gain", &sim_state->foc.i_controller_params.p_gain,
                         -1, 6);

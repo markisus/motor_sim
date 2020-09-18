@@ -32,6 +32,7 @@ struct SimState {
     bool foc_use_qd_decoupling = false;
     bool foc_use_cogging_compensation = false;
     bool foc_non_sinusoidal_drive_mode = false;
+    bool foc_pi_anti_windup = true;
     FocState foc;
 };
 

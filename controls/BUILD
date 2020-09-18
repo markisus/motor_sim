@@ -13,6 +13,17 @@ cc_library(
     copts = COPTS,
 )
 
+cc_binary(
+    name = "pi_control_test",
+    srcs = ["pi_control_test.cpp"],
+    deps = [
+        "//config:scalar",
+        "//global_debug:global_debug",
+        ":pi_control",
+        "@com_github_google_googletest//:gtest_main",
+    ])
+
+
 cc_library(
     name = "six_step",
     hdrs = ["six_step.h"],
