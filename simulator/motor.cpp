@@ -29,7 +29,14 @@ void step_motor(const Scalar dt, const Scalar load_torque,
         get_back_emf(motor->normed_bEmf_coeffs,
                      motor->electrical_angle - 4 * kPI / 3); // clang-format on
 
-    motor->bEmfs = motor->normed_bEmfs * motor->rotor_angular_vel;
+    const Scalar electrical_angular_vel =
+        motor->rotor_angular_vel * motor->num_pole_pairs;
+
+    // multiplying by electrical angular vel because normed bEmf map is
+    // expressed in electrical angle.
+    // This assumes the bEmf map was collected by dividing back emf by
+    // electrical velocity.
+    motor->bEmfs = motor->normed_bEmfs * electrical_angular_vel;
 
     // compute neutral point voltage
     // todo: derivation
