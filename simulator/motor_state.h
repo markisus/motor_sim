@@ -17,16 +17,16 @@ struct MotorState {
     Eigen::Matrix<Scalar, 5, 1> normed_bEmf_coeffs;
     std::array<Scalar, 3600> cogging_torque_map;
 
-    Scalar encoder_position = 0;
     Scalar rotor_angle = 0;
     Scalar rotor_angular_vel = 0;
     Scalar rotor_angular_accel = 0;
-    Scalar electrical_angle = 0;
+
+    Scalar encoder_position = 0; // driven by step_motor
+    Scalar electrical_angle = 0; // driven by step_motor
+
     Scalar q_axis_electrical_angle = q_axis_offset;
     Scalar torque = 0;
-    Scalar neutral_voltage = 0;
-    Eigen::Matrix<Scalar, 3, 1> pole_voltages =
-        {}; // does this zero the entries?
+
     Eigen::Matrix<Scalar, 3, 1> phase_voltages = {};
     Eigen::Matrix<Scalar, 3, 1> phase_currents = {};
     Eigen::Matrix<Scalar, 3, 1> bEmfs = {};
@@ -39,7 +39,6 @@ struct MotorState {
 };
 
 inline void init_motor_state(MotorState* motor) {
-    motor->pole_voltages.setZero();
     motor->phase_voltages.setZero();
     motor->phase_currents.setZero();
     motor->bEmfs.setZero();

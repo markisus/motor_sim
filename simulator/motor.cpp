@@ -21,7 +21,6 @@ void step_motor(const Scalar dt, const Scalar load_torque,
                 const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
                 MotorState* motor) {
 
-    motor->pole_voltages = pole_voltages;
     motor->normed_bEmfs << // clang-format off
         get_back_emf(motor->normed_bEmf_coeffs, motor->electrical_angle),
         get_back_emf(motor->normed_bEmf_coeffs,
@@ -40,12 +39,11 @@ void step_motor(const Scalar dt, const Scalar load_torque,
 
     // compute neutral point voltage
     // todo: derivation
-    motor->neutral_voltage =
-        (motor->pole_voltages.sum() - motor->bEmfs.sum()) / 3;
+    const Scalar neutral_voltage =
+        (pole_voltages.sum() - motor->bEmfs.sum()) / 3;
 
     for (int i = 0; i < 3; ++i) {
-        motor->phase_voltages(i) =
-            motor->pole_voltages(i) - motor->neutral_voltage;
+        motor->phase_voltages(i) = pole_voltages(i) - neutral_voltage;
     }
 
     Eigen::Matrix<Scalar, 3, 1> di_dt;
