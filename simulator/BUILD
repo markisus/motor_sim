@@ -11,10 +11,14 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "motor_state",
     hdrs = ["motor_state.h"],
+    srcs = ["motor_state.cpp"],
     deps = [
         "//config:scalar",
+        "//third_party/eigen:eigen",
         "//util:math_constants",
+        "//util:sine_series",
     ],
+    copts = COPTS
 )
 
 cc_library(
@@ -72,6 +76,35 @@ cc_library(
 cc_binary(
     name = "simulator",
     srcs = ["simulator.cpp"],
+    deps = [
+        "//board:board_state",
+        "//config:scalar",
+        "//controls:foc",
+        "//controls:pi_control",
+        "//controls:six_step",
+        "//controls:space_vector_modulation",
+        "//third_party/eigen:eigen",
+        "//third_party/glad:glad",
+        "//third_party/imgui:imgui_sdl",
+        "//third_party/implot:implot",
+        "//util:clarke_transform",
+        "//util:conversions",
+        "//util:math_constants",
+        "//util:rotation",
+        "//util:sine_series",
+        "//util:time",
+        "//wrappers:sdl_context",
+        "//wrappers:sdl_imgui",
+        ":gui",
+        ":motor",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+    copts = COPTS, # need cpp17 to avoid eigen weirdness
+)
+
+cc_binary(
+    name = "calibration_simulator",
+    srcs = ["calibration_simulator.cpp"],
     deps = [
         "//board:board_state",
         "//config:scalar",

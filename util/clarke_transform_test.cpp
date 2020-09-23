@@ -1,4 +1,6 @@
 #include "clarke_transform.h"
+#include "config/scalar.h"
+#include <Eigen/Dense>
 #include <gtest/gtest.h>
 
 TEST(kClarkeTransform2x3, zero_series_invariant) {

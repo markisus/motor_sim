@@ -1,9 +1,9 @@
-#include "clarke_transform.h"
-#include "conversions.h"
+#include "board/pwm_state.h"
+#include "config/scalar.h"
 #include "global_debug.h"
-#include "pwm_state.h"
-#include "scalar.h"
 #include "space_vector_modulation.h"
+#include "util/clarke_transform.h"
+#include "util/conversions.h"
 #include "util/math_constants.h"
 #include <complex>
 #include <gtest/gtest.h>
@@ -136,7 +136,7 @@ TEST(dt_simulation, 0) {
             to_complex<Scalar>(kClarkeTransform2x3 * pole_voltages);
         avg += voltage_sv * dt;
 
-	time_elapsed += dt;
+        time_elapsed += dt;
     }
 
     avg /= time_elapsed;
