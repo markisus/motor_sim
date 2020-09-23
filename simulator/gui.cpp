@@ -224,8 +224,14 @@ void update_rolling_buffers(const Scalar time, const BoardState& board,
 
     buffers->timestamps[next_idx] = time;
 
+    const Eigen::Matrix<Scalar, 3, 1> pole_voltages = get_pole_voltages(
+        board.bus_voltage, motor.electrical.phase_currents, board.gate);
+
+    const Eigen::Matrix<Scalar, 3, 1> phase_voltages =
+        get_phase_voltages(pole_voltages, motor.electrical.bEmfs);
+
     for (int i = 0; i < 3; ++i) {
-        buffers->phase_vs[i][next_idx] = motor.electrical.phase_voltages(i);
+        buffers->phase_vs[i][next_idx] = phase_voltages(i);
 
         buffers->phase_currents[i][next_idx] =
             motor.electrical.phase_currents(i);
@@ -247,8 +253,10 @@ void update_rolling_buffers(const Scalar time, const BoardState& board,
 
         // Project current onto qd axes
         {
+            const Scalar q_axis_electrical_angle = get_q_axis_electrical_angle(
+                motor.params.num_pole_pairs, motor.kinematic.rotor_angle);
             const std::complex<Scalar> park_transform =
-                get_rotation(-motor.kinematic.q_axis_electrical_angle);
+                get_rotation(-q_axis_electrical_angle);
             const std::complex<Scalar> current_qd =
                 park_transform *
                 clarke_transform(motor.electrical.phase_currents);
@@ -451,27 +459,31 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
                           ImPlotAxisFlags_Default &
                               ~ImPlotAxisFlags_TickLabels)) {
 
+        const Scalar electrical_angle =
+            get_electrical_angle(state.motor.params.num_pole_pairs,
+                                 state.motor.kinematic.rotor_angle);
         ImPlot::PushStyleColor(ImPlotCol_Line,
                                (uint32_t)ImColor(1.0f, 1.0f, 1.0f, 1.0));
         implot_radial_line("Rotor Angle", 0.0f, 1.0f,
-                           options->use_rotor_frame
-                               ? 0
-                               : state.motor.kinematic.electrical_angle);
+                           options->use_rotor_frame ? 0 : electrical_angle);
         ImPlot::PopStyleColor();
 
         const std::complex<Scalar> park_transform =
-            get_rotation(-state.motor.kinematic.electrical_angle);
+            get_rotation(-electrical_angle);
 
-        std::complex<Scalar> phase_voltage_sv =
-            clarke_transform(state.motor.electrical.phase_voltages);
+        const Eigen::Matrix<Scalar, 3, 1> pole_voltages = get_pole_voltages(
+            state.board.bus_voltage, state.motor.electrical.phase_currents,
+            state.board.gate);
+
+        std::complex<Scalar> pole_voltage_sv = clarke_transform(pole_voltages);
 
         if (options->use_rotor_frame) {
-            phase_voltage_sv *= park_transform;
+            pole_voltage_sv *= park_transform;
         }
 
         ImPlot::PushStyleVar(ImPlotStyleVar_LineWeight, 3.0f);
-        implot_central_line("Phase Voltage", phase_voltage_sv.real(),
-                            phase_voltage_sv.imag());
+        implot_central_line("Pole Voltage", pole_voltage_sv.real(),
+                            pole_voltage_sv.imag());
         ImPlot::PopStyleVar();
 
         std::complex<Scalar> current_sv =
@@ -785,8 +797,6 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     ImGui::Columns(1);
 
     ImGui::Text("Rotor Angle %f", sim_state->motor.kinematic.rotor_angle);
-    ImGui::Text("Encoder Position %f",
-                sim_state->motor.kinematic.encoder_position);
 
     ImGui::NewLine();
     ImGui::Text("Space Vectors");

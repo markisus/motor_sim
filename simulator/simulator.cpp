@@ -82,7 +82,8 @@ int main(int argc, char* argv[]) {
 
                 if (state.commutation_mode == kCommutationModeSixStep) {
                     gate_command = six_step_commutate(
-                        state.motor.kinematic.electrical_angle,
+                        get_electrical_angle(state.motor.params.num_pole_pairs,
+                                             state.motor.kinematic.rotor_angle),
                         state.six_step_phase_advance);
                 }
 
@@ -92,7 +93,7 @@ int main(int argc, char* argv[]) {
                         Scalar desired_torque = state.foc_desired_torque;
                         if (state.foc_use_cogging_compensation) {
                             desired_torque -= interp_cogging_torque(
-                                state.motor.kinematic.encoder_position,
+                                state.motor.kinematic.rotor_angle,
                                 state.motor.params.cogging_torque_map);
                         }
 
@@ -135,8 +136,9 @@ int main(int argc, char* argv[]) {
                     // assert the requested qd voltage with PWM
                     if (new_pwm_cycle) {
                         const std::complex<Scalar> inv_park_transform =
-                            get_rotation(
-                                state.motor.kinematic.q_axis_electrical_angle);
+                            get_rotation(get_q_axis_electrical_angle(
+                                state.motor.params.num_pole_pairs,
+                                state.motor.kinematic.rotor_angle));
 
                         std::complex<Scalar> voltage_ab =
                             inv_park_transform * state.foc.voltage_qd;

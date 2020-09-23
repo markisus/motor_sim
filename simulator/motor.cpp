@@ -1,5 +1,4 @@
 #include "motor.h"
-#include "util/sine_series.h"
 
 PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
                               Scalar inductance) {
@@ -9,24 +8,6 @@ PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
     return params;
 }
 
-Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normed_bEmf_coeffs,
-                    const Scalar electrical_angle) {
-    Eigen::Matrix<Scalar, 5, 1> sines;
-    generate_odd_sine_series(/*num_terms=*/sines.rows(), electrical_angle,
-                             sines.data());
-    return sines.dot(normed_bEmf_coeffs);
-}
-
-Eigen::Matrix<Scalar, 3, 1>
-get_normed_back_emfs(const Eigen::Matrix<Scalar, 5, 1>& normed_bEmf_coeffs,
-                     const Scalar electrical_angle) {
-    Eigen::Matrix<Scalar, 3, 1> normed_bEmfs;
-    normed_bEmfs << // clang-format off
-        get_back_emf(normed_bEmf_coeffs, electrical_angle),
-        get_back_emf(normed_bEmf_coeffs, electrical_angle - 2 * kPI / 3),
-        get_back_emf(normed_bEmf_coeffs, electrical_angle - 4 * kPI / 3); // clang-format on
-    return normed_bEmfs;
-}
 /*
 // calculates
 // - bEmfs
@@ -80,8 +61,8 @@ get_phase_voltages(const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
                    const Eigen::Matrix<Scalar, 3, 1>& bEmfs) {
     // todo: derivation
     const Eigen::Matrix<Scalar, 3, 1> phase_voltages =
-        pole_voltages -
-        Eigen::Matrix<Scalar, 3, 1>::Ones() * pole_voltages.mean();
+        pole_voltages - Eigen::Matrix<Scalar, 3, 1>::Ones() *
+                            (pole_voltages.mean() - bEmfs.mean());
     return phase_voltages;
 };
 
@@ -90,7 +71,6 @@ get_di_dt(const Scalar phase_resistance, const Scalar phase_inductance,
           const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
           const Eigen::Matrix<Scalar, 3, 1>& bEmfs,
           const Eigen::Matrix<Scalar, 3, 1>& phase_currents) {
-
     // zero series components
     const Eigen::Matrix<Scalar, 3, 1> pole_voltages_zs =
         pole_voltages.mean() * Eigen::Matrix<Scalar, 3, 1>::Ones();
@@ -104,59 +84,59 @@ get_di_dt(const Scalar phase_resistance, const Scalar phase_inductance,
     return di_dt;
 };
 
-void step_motor(const Scalar dt, const Scalar load_torque,
-                const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
-                MotorState* motor) {
-    motor->electrical.normed_bEmfs = get_normed_back_emfs(
-        motor->params.normed_bEmf_coeffs, motor->kinematic.electrical_angle);
-
-    const Scalar electrical_angular_vel =
-        motor->kinematic.rotor_angular_vel * motor->params.num_pole_pairs;
-
-    // multiplying by electrical angular vel because normed bEmf map is
-    // expressed in electrical angle.
-    // This assumes the bEmf map was collected by dividing back emf by
-    // electrical velocity.
-    motor->electrical.bEmfs =
-        motor->electrical.normed_bEmfs * electrical_angular_vel;
-
-    motor->electrical.phase_voltages =
-        get_phase_voltages(pole_voltages, motor->electrical.bEmfs);
+void step_motor_electrical(const Scalar dt,
+                           const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
+                           const Scalar electrical_angle,
+                           const Scalar electrical_angular_vel,
+                           const MotorParams& motor_params,
+                           MotorElectricalState* motor_electrical) {
+    get_bEmfs(motor_params.normed_bEmf_coeffs, electrical_angle,
+              electrical_angular_vel, &motor_electrical->normed_bEmfs,
+              &motor_electrical->bEmfs);
 
     // todo: handle the case where di_dt = infinity due to too small inductance
     const Eigen::Matrix<Scalar, 3, 1> di_dt =
-        get_di_dt(motor->params.phase_resistance,
-                  motor->params.phase_inductance, pole_voltages,
-                  motor->electrical.bEmfs, motor->electrical.phase_currents);
+        get_di_dt(motor_params.phase_resistance, motor_params.phase_inductance,
+                  pole_voltages, motor_electrical->bEmfs,
+                  motor_electrical->phase_currents);
 
-    motor->electrical.phase_currents += di_dt * dt;
+    motor_electrical->phase_currents += di_dt * dt;
+}
 
-    motor->kinematic.encoder_position =
-        motor->params.cogging_torque_map.size() *
-        std::clamp<Scalar>(motor->kinematic.rotor_angle / (2 * kPI), 0.0, 1.0);
-
+void step_motor_kinematic(const Scalar dt, const Scalar load_torque,
+                          const Eigen::Matrix<Scalar, 3, 1>& phase_currents,
+                          const Eigen::Matrix<Scalar, 3, 1>& normed_bEmfs,
+                          const MotorParams& motor_params,
+                          MotorKinematicState* motor_kinematic) {
     const Scalar cogging_torque = interp_cogging_torque(
-        motor->kinematic.encoder_position, motor->params.cogging_torque_map);
-
-    motor->kinematic.torque =
-        motor->electrical.phase_currents.dot(motor->electrical.normed_bEmfs) +
-        cogging_torque + load_torque;
-
-    motor->kinematic.rotor_angular_accel =
-        motor->kinematic.torque / motor->params.rotor_inertia;
-    motor->kinematic.rotor_angular_vel +=
-        motor->kinematic.rotor_angular_accel * dt;
-    motor->kinematic.rotor_angle += motor->kinematic.rotor_angular_vel * dt;
-    motor->kinematic.rotor_angle =
-        std::fmod(motor->kinematic.rotor_angle, 2 * kPI);
-    if (motor->kinematic.rotor_angle < 0) {
-        motor->kinematic.rotor_angle += 2 * kPI;
+        motor_kinematic->rotor_angle, motor_params.cogging_torque_map);
+    motor_kinematic->torque =
+        phase_currents.dot(normed_bEmfs) + cogging_torque + load_torque;
+    motor_kinematic->rotor_angular_accel =
+        motor_kinematic->torque / motor_params.rotor_inertia;
+    motor_kinematic->rotor_angular_vel +=
+        motor_kinematic->rotor_angular_accel * dt;
+    motor_kinematic->rotor_angle += motor_kinematic->rotor_angular_vel * dt;
+    motor_kinematic->rotor_angle =
+        std::fmod(motor_kinematic->rotor_angle, 2 * kPI);
+    if (motor_kinematic->rotor_angle < 0) {
+        motor_kinematic->rotor_angle += 2 * kPI;
     }
+}
 
-    motor->kinematic.electrical_angle =
-        motor->kinematic.rotor_angle * motor->params.num_pole_pairs;
-    motor->kinematic.electrical_angle =
-        std::fmod(motor->kinematic.electrical_angle, 2 * kPI);
-    motor->kinematic.q_axis_electrical_angle =
-        motor->kinematic.electrical_angle + motor->params.q_axis_offset;
+void step_motor(const Scalar dt, const Scalar load_torque,
+                const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
+                MotorState* motor) {
+
+    const Scalar electrical_angle = get_electrical_angle(
+        motor->params.num_pole_pairs, motor->kinematic.rotor_angle);
+    const Scalar electrical_angular_vel =
+        motor->kinematic.rotor_angular_vel * motor->params.num_pole_pairs;
+
+    step_motor_electrical(dt, pole_voltages, electrical_angle,
+                          electrical_angular_vel, motor->params,
+                          &motor->electrical);
+    step_motor_kinematic(dt, load_torque, motor->electrical.phase_currents,
+                         motor->electrical.normed_bEmfs, motor->params,
+                         &motor->kinematic);
 }

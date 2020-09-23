@@ -83,11 +83,12 @@ cc_binary(
     name = "space_vector_modulation_test",
     srcs = ["space_vector_modulation_test.cpp"],
     deps = [
+        "//board:pwm_state",
         "//config:scalar",
         "//global_debug:global_debug",
+        "//util:clarke_transform",
         "//util:conversions",
         "//util:math_constants",
-        "//simulator:pwm_state",
         ":space_vector_modulation",
         "@com_github_google_googletest//:gtest_main",
     ])
