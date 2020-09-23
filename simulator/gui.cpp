@@ -225,13 +225,14 @@ void update_rolling_buffers(const Scalar time, const BoardState& board,
     buffers->timestamps[next_idx] = time;
 
     for (int i = 0; i < 3; ++i) {
-        buffers->phase_vs[i][next_idx] = motor.phase_voltages(i);
+        buffers->phase_vs[i][next_idx] = motor.electrical.phase_voltages(i);
 
-        buffers->phase_currents[i][next_idx] = motor.phase_currents(i);
+        buffers->phase_currents[i][next_idx] =
+            motor.electrical.phase_currents(i);
 
-        buffers->bEmfs[i][next_idx] = motor.bEmfs(i);
+        buffers->bEmfs[i][next_idx] = motor.electrical.bEmfs(i);
 
-        buffers->normed_bEmfs[i][next_idx] = motor.normed_bEmfs(i);
+        buffers->normed_bEmfs[i][next_idx] = motor.electrical.normed_bEmfs(i);
 
         buffers->pwm_duties[i][next_idx] = board.pwm.duties[i];
 
@@ -247,9 +248,10 @@ void update_rolling_buffers(const Scalar time, const BoardState& board,
         // Project current onto qd axes
         {
             const std::complex<Scalar> park_transform =
-                get_rotation(-motor.q_axis_electrical_angle);
+                get_rotation(-motor.kinematic.q_axis_electrical_angle);
             const std::complex<Scalar> current_qd =
-                park_transform * clarke_transform(motor.phase_currents);
+                park_transform *
+                clarke_transform(motor.electrical.phase_currents);
             buffers->current_q[next_idx] = current_qd.real();
             buffers->current_d[next_idx] = current_qd.imag();
         }
@@ -269,7 +271,8 @@ void update_rolling_buffers(const Scalar time, const BoardState& board,
         Scalar power_draw = 0;
         for (int i = 0; i < 3; ++i) {
             if (board.gate.actual[i] == HIGH) {
-                power_draw += board.bus_voltage * motor.phase_currents(i);
+                power_draw +=
+                    board.bus_voltage * motor.electrical.phase_currents(i);
             }
         }
         buffers->power_draw[next_idx] = power_draw;
@@ -277,8 +280,8 @@ void update_rolling_buffers(const Scalar time, const BoardState& board,
 
     buffers->current_d_integral[next_idx] = foc.id_controller.integral;
 
-    buffers->rotor_angular_vel[next_idx] = motor.rotor_angular_vel;
-    buffers->torque[next_idx] = motor.torque;
+    buffers->rotor_angular_vel[next_idx] = motor.kinematic.rotor_angular_vel;
+    buffers->torque[next_idx] = motor.kinematic.torque;
 
     rolling_buffer_advance_idx(&buffers->ctx);
 }
@@ -450,16 +453,17 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
 
         ImPlot::PushStyleColor(ImPlotCol_Line,
                                (uint32_t)ImColor(1.0f, 1.0f, 1.0f, 1.0));
-        implot_radial_line(
-            "Rotor Angle", 0.0f, 1.0f,
-            options->use_rotor_frame ? 0 : state.motor.electrical_angle);
+        implot_radial_line("Rotor Angle", 0.0f, 1.0f,
+                           options->use_rotor_frame
+                               ? 0
+                               : state.motor.kinematic.electrical_angle);
         ImPlot::PopStyleColor();
 
         const std::complex<Scalar> park_transform =
-            get_rotation(-state.motor.electrical_angle);
+            get_rotation(-state.motor.kinematic.electrical_angle);
 
         std::complex<Scalar> phase_voltage_sv =
-            clarke_transform(state.motor.phase_voltages);
+            clarke_transform(state.motor.electrical.phase_voltages);
 
         if (options->use_rotor_frame) {
             phase_voltage_sv *= park_transform;
@@ -471,7 +475,7 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
         ImPlot::PopStyleVar();
 
         std::complex<Scalar> current_sv =
-            clarke_transform(state.motor.phase_currents);
+            clarke_transform(state.motor.electrical.phase_currents);
 
         if (options->use_rotor_frame) {
             current_sv *= park_transform;
@@ -480,7 +484,7 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
         implot_central_line("Current", current_sv.real(), current_sv.imag());
 
         std::complex<Scalar> normed_bEmf_sv =
-            clarke_transform(state.motor.normed_bEmfs);
+            clarke_transform(state.motor.electrical.normed_bEmfs);
 
         if (options->use_rotor_frame) {
             normed_bEmf_sv *= park_transform;
@@ -502,7 +506,8 @@ void draw_space_vector_plot(const SimState& state, VizOptions* options) {
                                 voltage_sv.imag());
         }
 
-        std::complex<Scalar> bEmf_sv = clarke_transform(state.motor.bEmfs);
+        std::complex<Scalar> bEmf_sv =
+            clarke_transform(state.motor.electrical.bEmfs);
 
         if (options->use_rotor_frame) {
             bEmf_sv *= park_transform;
@@ -593,7 +598,7 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
                 };
 
             Eigen::Matrix<Scalar, 5, 1> gui_scale =
-                to_gui_scale(motor.normed_bEmf_coeffs);
+                to_gui_scale(motor.params.normed_bEmf_coeffs);
 
             ImGui::Text("Presets");
             ImGui::SameLine();
@@ -616,7 +621,7 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
                        0, 1);
             }
 
-            motor.normed_bEmf_coeffs = from_gui_scale(gui_scale);
+            motor.params.normed_bEmf_coeffs = from_gui_scale(gui_scale);
 
             constexpr int kNumSamples = 1000;
             static std::array<Scalar, kNumSamples> angles;
@@ -625,14 +630,15 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
                 const Scalar angle = 2 * kPI * Scalar(i) / kNumSamples;
                 Eigen::Matrix<Scalar, 5, 1> odd_sine_series;
                 generate_odd_sine_series(5, angle, odd_sine_series.data());
-                samples[i] = odd_sine_series.dot(motor.normed_bEmf_coeffs);
+                samples[i] =
+                    odd_sine_series.dot(motor.params.normed_bEmf_coeffs);
                 angles[i] = angle;
             }
 
             ImPlot::SetNextPlotLimitsX(0, 2 * kPI, ImGuiCond_Once);
-            ImPlot::SetNextPlotLimitsY(-1.5 * motor.normed_bEmf_coeffs(0),
-                                       1.5 * motor.normed_bEmf_coeffs(0),
-                                       ImGuiCond_Once);
+            ImPlot::SetNextPlotLimitsY(
+                -1.5 * motor.params.normed_bEmf_coeffs(0),
+                1.5 * motor.params.normed_bEmf_coeffs(0), ImGuiCond_Once);
 
             if (ImPlot::BeginPlot("Normed Back Emf", "Electrical Angle (rad)",
                                   "Volt . sec",
@@ -648,7 +654,7 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
         if (ImGui::BeginTabItem("Cogging Torque")) {
 
             // convenience reference
-            auto& cogging_torque_map = motor.cogging_torque_map;
+            auto& cogging_torque_map = motor.params.cogging_torque_map;
 
             if (ImGui::Button("Set Cogging Torque to Zero")) {
                 cogging_torque_map = {};
@@ -664,7 +670,7 @@ void run_advanced_motor_config(MotorState* motor_ptr) {
                 std::array<Scalar, 12> fourier_coeffs;
                 // arbitrarily choose some frequencies that might be dominant in
                 // the cogging map, plus some fuding to make it look interesting
-                const int p = motor.num_pole_pairs;
+                const int p = motor.params.num_pole_pairs;
                 std::array<int, 6> fourier_frequencies{
                     1, p, p * 2 + 1, p * 3 + 2, p * 7 + 3, p * 10 + 4};
 
@@ -762,7 +768,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
     ImGui::Columns(2);
     ImGui::SetColumnWidth(0, 120);
 
-    draw_rotor_plot(viz_data, sim_state->motor.rotor_angle);
+    draw_rotor_plot(viz_data, sim_state->motor.kinematic.rotor_angle);
 
     ImGui::NextColumn();
 
@@ -778,8 +784,9 @@ void run_gui(const VizData& viz_data, VizOptions* options,
 
     ImGui::Columns(1);
 
-    ImGui::Text("Rotor Angle %f", sim_state->motor.rotor_angle);
-    ImGui::Text("Encoder Position %f", sim_state->motor.encoder_position);
+    ImGui::Text("Rotor Angle %f", sim_state->motor.kinematic.rotor_angle);
+    ImGui::Text("Encoder Position %f",
+                sim_state->motor.kinematic.encoder_position);
 
     ImGui::NewLine();
     ImGui::Text("Space Vectors");
@@ -838,7 +845,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                                 1.0 / sim_state->foc.period / 1000);
                 }
 
-		ImGui::NewLine();
+                ImGui::NewLine();
                 Slider("Load Torque", &sim_state->load_torque, -1.0, 1.0);
 
                 static bool match_load_torque = false;
@@ -852,7 +859,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                 ImGui::Checkbox("Desired Torque = -Load Torque",
                                 &match_load_torque);
 
-		ImGui::NewLine();
+                ImGui::NewLine();
 
                 ImGui::Checkbox("Non-Sinusoidal Drive Mode",
                                 &sim_state->foc_non_sinusoidal_drive_mode);
@@ -861,7 +868,7 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                 ImGui::Checkbox("qd Decoupling",
                                 &sim_state->foc_use_qd_decoupling);
 
-		ImGui::NewLine();
+                ImGui::NewLine();
 
                 ImGui::Text("PI Params");
                 static bool auto_pi_params = true;
@@ -870,14 +877,16 @@ void run_gui(const VizData& viz_data, VizOptions* options,
                 if (auto_pi_params) {
                     make_motor_pi_params(
                         /*bandwidth=*/10000,
-                        /*resistance=*/sim_state->motor.phase_resistance,
-                        /*inductance=*/sim_state->motor.phase_inductance);
+                        /*resistance=*/sim_state->motor.params.phase_resistance,
+                        /*inductance=*/
+                        sim_state->motor.params.phase_inductance);
                     ImGui::Text("P Gain %f",
                                 sim_state->foc.i_controller_params.p_gain);
                     ImGui::Text("I Gain %f",
                                 sim_state->foc.i_controller_params.i_gain);
                 } else {
-                    ImGui::Checkbox("Anti-windup", &sim_state->foc_pi_anti_windup);
+                    ImGui::Checkbox("Anti-windup",
+                                    &sim_state->foc_pi_anti_windup);
                     order_of_magnitude_control(
                         "P Gain", &sim_state->foc.i_controller_params.p_gain,
                         -1, 6);
@@ -923,14 +932,14 @@ void run_gui(const VizData& viz_data, VizOptions* options,
         }
 
         if (ImGui::BeginTabItem("Motor Params")) {
-            ImGui::SliderInt("Num Pole Pairs", &sim_state->motor.num_pole_pairs,
-                             1, 8);
+            ImGui::SliderInt("Num Pole Pairs",
+                             &sim_state->motor.params.num_pole_pairs, 1, 8);
             Slider("Rotor Moment of Inertia (kg m^2)",
-                   &sim_state->motor.rotor_inertia, 0.1, 10);
-            order_of_magnitude_control("Phase Inductance",
-                                       &sim_state->motor.phase_inductance);
-            order_of_magnitude_control("Phase Resistance",
-                                       &sim_state->motor.phase_resistance);
+                   &sim_state->motor.params.rotor_inertia, 0.1, 10);
+            order_of_magnitude_control(
+                "Phase Inductance", &sim_state->motor.params.phase_inductance);
+            order_of_magnitude_control(
+                "Phase Resistance", &sim_state->motor.params.phase_resistance);
 
             if (ImGui::Button("Open Advanced Config")) {
                 options->advanced_motor_config = true;

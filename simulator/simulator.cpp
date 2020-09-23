@@ -25,10 +25,10 @@ using namespace biro;
 int main(int argc, char* argv[]) {
     SimState state;
     init_sim_state(&state);
-    state.foc.i_controller_params =
-        make_motor_pi_params(/*bandwidth=*/10000,
-                             /*resistance=*/state.motor.phase_resistance,
-                             /*inductance=*/state.motor.phase_inductance);
+    state.foc.i_controller_params = make_motor_pi_params(
+        /*bandwidth=*/10000,
+        /*resistance=*/state.motor.params.phase_resistance,
+        /*inductance=*/state.motor.params.phase_inductance);
 
     VizData viz_data;
     init_viz_data(&viz_data);
@@ -81,9 +81,9 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (state.commutation_mode == kCommutationModeSixStep) {
-                    gate_command =
-                        six_step_commutate(state.motor.electrical_angle,
-                                           state.six_step_phase_advance);
+                    gate_command = six_step_commutate(
+                        state.motor.kinematic.electrical_angle,
+                        state.six_step_phase_advance);
                 }
 
                 if (state.commutation_mode == kCommutationModeFOC) {
@@ -92,8 +92,8 @@ int main(int argc, char* argv[]) {
                         Scalar desired_torque = state.foc_desired_torque;
                         if (state.foc_use_cogging_compensation) {
                             desired_torque -= interp_cogging_torque(
-                                state.motor.encoder_position,
-                                state.motor.cogging_torque_map);
+                                state.motor.kinematic.encoder_position,
+                                state.motor.params.cogging_torque_map);
                         }
 
                         std::complex<Scalar> desired_current_qd;
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
                         } else {
                             desired_current_qd = get_desired_current_qd(
                                 desired_torque,
-                                state.motor.normed_bEmf_coeffs(0));
+                                state.motor.params.normed_bEmf_coeffs(0));
                         }
 
                         step_foc_current_controller(desired_current_qd,
@@ -135,15 +135,17 @@ int main(int argc, char* argv[]) {
                     // assert the requested qd voltage with PWM
                     if (new_pwm_cycle) {
                         const std::complex<Scalar> inv_park_transform =
-                            get_rotation(state.motor.q_axis_electrical_angle);
+                            get_rotation(
+                                state.motor.kinematic.q_axis_electrical_angle);
 
                         std::complex<Scalar> voltage_ab =
                             inv_park_transform * state.foc.voltage_qd;
 
                         if (state.foc_use_qd_decoupling) {
                             const std::complex<Scalar> existing_back_emf_ab =
-                                clarke_transform(state.motor.normed_bEmfs) *
-                                state.motor.rotor_angular_vel;
+                                clarke_transform(
+                                    state.motor.electrical.normed_bEmfs) *
+                                state.motor.kinematic.rotor_angular_vel;
                             voltage_ab += existing_back_emf_ab;
                         }
 
@@ -158,8 +160,8 @@ int main(int argc, char* argv[]) {
                 update_gate_state(state.dt, &state.board.gate);
 
                 const auto pole_voltages = get_pole_voltages(
-                    state.board.bus_voltage, state.motor.phase_currents,
-                    state.board.gate);
+                    state.board.bus_voltage,
+                    state.motor.electrical.phase_currents, state.board.gate);
 
                 step_motor(state.dt, state.load_torque, pole_voltages,
                            &state.motor);
