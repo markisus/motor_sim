@@ -11,10 +11,14 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "motor_state",
     hdrs = ["motor_state.h"],
+    srcs = ["motor_state.cpp"],
     deps = [
         "//config:scalar",
+        "//third_party/eigen:eigen",
         "//util:math_constants",
+        "//util:sine_series",
     ],
+    copts = COPTS
 )
 
 cc_library(

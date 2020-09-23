@@ -8,20 +8,17 @@
 PiParams make_motor_pi_params(Scalar bandwidth, Scalar resistance,
                               Scalar inductance);
 
-Scalar get_back_emf(const Eigen::Matrix<Scalar, 5, 1>& normalized_bEmf_coeffs,
-                    const Scalar electrical_angle);
+Eigen::Matrix<Scalar, 3, 1>
+get_phase_voltages(const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
+                   const Eigen::Matrix<Scalar, 3, 1>& bEmfs);
+
+void step_motor_electrical(const Scalar dt,
+                           const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
+                           const Scalar electrical_angle,
+                           const Scalar electrical_angular_vel,
+                           const MotorParams& motor_params,
+                           MotorElectricalState* motor_electrical);
 
 void step_motor(const Scalar dt, const Scalar load_torque,
                 const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
                 MotorState* motor);
-
-inline Scalar
-interp_cogging_torque(const Scalar encoder_position,
-                      const std::array<Scalar, 3600>& cogging_torque_map) {
-    const int integral_part = int(encoder_position);
-    const Scalar fractional_part = encoder_position - integral_part;
-    const Scalar t1 = cogging_torque_map[integral_part];
-    const Scalar t2 =
-        cogging_torque_map[(integral_part + 1) % cogging_torque_map.size()];
-    return t1 * (1.0 - fractional_part) + t2 * fractional_part;
-}

@@ -38,6 +38,7 @@ cc_binary(
     srcs = ["clarke_transform_test.cpp"],
     deps = [
         ":clarke_transform",
+        "//config:scalar",
         "@com_github_google_googletest//:gtest_main",
     ]
 )
