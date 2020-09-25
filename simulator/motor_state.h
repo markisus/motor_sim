@@ -33,8 +33,8 @@ struct MotorParams {
     Scalar phase_resistance = 1.0;
     // normalized bEmf aka torque/current curve
     // odd coefficients of sine fourier expansion
-    Eigen::Matrix<Scalar, 5, 1> normed_bEmf_coeffs;
-    std::array<Scalar, 3600> cogging_torque_map;
+    Eigen::Matrix<Scalar, 5, 1> normed_bEmf_coeffs = {};
+    std::array<Scalar, 3600> cogging_torque_map = {};
 };
 
 struct MotorState {

@@ -12,11 +12,15 @@ Eigen::Matrix<Scalar, 3, 1>
 get_phase_voltages(const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
                    const Eigen::Matrix<Scalar, 3, 1>& bEmfs);
 
-void step_motor_electrical(const Scalar dt,
+Eigen::Matrix<Scalar, 3, 1>
+get_di_dt(const Scalar phase_resistance, const Scalar phase_inductance,
+          const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
+          const Eigen::Matrix<Scalar, 3, 1>& bEmfs,
+          const Eigen::Matrix<Scalar, 3, 1>& phase_currents);
+
+void step_motor_electrical(const Scalar dt, const Scalar phase_resistance,
+                           const Scalar phase_inductance,
                            const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
-                           const Scalar electrical_angle,
-                           const Scalar electrical_angular_vel,
-                           const MotorParams& motor_params,
                            MotorElectricalState* motor_electrical);
 
 void step_motor(const Scalar dt, const Scalar load_torque,

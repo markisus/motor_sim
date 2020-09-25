@@ -84,21 +84,14 @@ get_di_dt(const Scalar phase_resistance, const Scalar phase_inductance,
     return di_dt;
 };
 
-void step_motor_electrical(const Scalar dt,
+void step_motor_electrical(const Scalar dt, const Scalar phase_resistance,
+                           const Scalar phase_inductance,
                            const Eigen::Matrix<Scalar, 3, 1>& pole_voltages,
-                           const Scalar electrical_angle,
-                           const Scalar electrical_angular_vel,
-                           const MotorParams& motor_params,
                            MotorElectricalState* motor_electrical) {
-    get_bEmfs(motor_params.normed_bEmf_coeffs, electrical_angle,
-              electrical_angular_vel, &motor_electrical->normed_bEmfs,
-              &motor_electrical->bEmfs);
-
     // todo: handle the case where di_dt = infinity due to too small inductance
     const Eigen::Matrix<Scalar, 3, 1> di_dt =
-        get_di_dt(motor_params.phase_resistance, motor_params.phase_inductance,
-                  pole_voltages, motor_electrical->bEmfs,
-                  motor_electrical->phase_currents);
+        get_di_dt(phase_resistance, phase_inductance, pole_voltages,
+                  motor_electrical->bEmfs, motor_electrical->phase_currents);
 
     motor_electrical->phase_currents += di_dt * dt;
 }
@@ -133,8 +126,12 @@ void step_motor(const Scalar dt, const Scalar load_torque,
     const Scalar electrical_angular_vel =
         motor->kinematic.rotor_angular_vel * motor->params.num_pole_pairs;
 
-    step_motor_electrical(dt, pole_voltages, electrical_angle,
-                          electrical_angular_vel, motor->params,
+    get_bEmfs(motor->params.normed_bEmf_coeffs, electrical_angle,
+              electrical_angular_vel, &motor->electrical.normed_bEmfs,
+              &motor->electrical.bEmfs);
+
+    step_motor_electrical(dt, motor->params.phase_resistance,
+                          motor->params.phase_inductance, pole_voltages,
                           &motor->electrical);
     step_motor_kinematic(dt, load_torque, motor->electrical.phase_currents,
                          motor->electrical.normed_bEmfs, motor->params,
